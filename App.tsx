@@ -70,6 +70,7 @@ export default function App() {
           <HomeTab
             oshis={oshis}
             logs={logs}
+            goods={goods}
             selectedOshi={selectedOshi}
             selectedOshiId={selectedOshiId}
             onAddOshi={addOshi}

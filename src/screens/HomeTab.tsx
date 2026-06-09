@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, View, Text, StyleSheet } from 'react-native';
-import { Oshi, OshiLog } from '../types/oshi';
+import { Oshi, OshiLog, OshiGoods } from '../types/oshi';
 import OshiForm from '../components/OshiForm';
 import OshiList from '../components/OshiList';
 import OshiLogForm from '../components/OshiLogForm';
@@ -12,6 +12,7 @@ import { formatAmount } from '../utils/format';
 type Props = {
   oshis: Oshi[];
   logs: OshiLog[];
+  goods?: OshiGoods[];
   selectedOshi: Oshi | null;
   selectedOshiId: string | null;
   onAddOshi: (oshi: Oshi) => void;
@@ -41,10 +42,16 @@ export default function HomeTab({
   onSelectOshi,
   onAddLog,
   onDeleteLog,
+  goods = [],
 }: Props) {
-  const totalAmount = logs
+  const goodsList = goods ?? [];
+  const logTotal = logs
     .filter((l) => l.amount != null && l.amount > 0)
     .reduce((sum, l) => sum + (l.amount ?? 0), 0);
+  const goodsTotal = goodsList
+    .filter((g) => g.price != null && g.price > 0)
+    .reduce((sum, g) => sum + (g.price ?? 0), 0);
+  const totalAmount = logTotal + goodsTotal;
 
   return (
     <ScrollView
