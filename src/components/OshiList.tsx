@@ -7,7 +7,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Oshi } from '../types/oshi';
-import { COLORS, RADIUS } from '../styles/theme';
+import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 
 type Props = {
   oshis: Oshi[];
@@ -16,30 +16,43 @@ type Props = {
   onDelete: (id: string) => void;
 };
 
-const GENRE_ICONS: Record<string, string> = {
-  'アイドル': '🌟',
-  'Vtuber': '🎮',
-  '2.5次元俳優': '🎭',
-  '声優': '🎤',
-  'アニメ': '✨',
-  'バンド': '🎸',
-  'ゲーム': '🕹️',
+const GENRE_EMOJI: Record<string, string> = {
+  アイドル:     '🌟',
+  Vtuber:       '🎮',
+  vtuber:       '🎮',
+  '2.5次元':    '🎭',
+  俳優:         '🎭',
+  声優:         '🎤',
+  アニメ:       '✨',
+  バンド:       '🎸',
+  ゲーム:       '🕹️',
+  アーティスト: '🎵',
 };
 
-function getGenreIcon(genre: string): string {
-  for (const key of Object.keys(GENRE_ICONS)) {
-    if (genre.includes(key)) return GENRE_ICONS[key];
+const BG_PALETTE = [
+  '#FFE8F4', '#EDE8FF', '#E8F4FF', '#FFF3E8',
+  '#E8FFF3', '#FFF8E8', '#FFE8E8', '#E8F0FF',
+];
+
+function getEmoji(genre: string): string {
+  for (const key of Object.keys(GENRE_EMOJI)) {
+    if (genre.includes(key)) return GENRE_EMOJI[key];
   }
   return '💫';
+}
+
+function getAvatarBg(id: string): string {
+  const idx = id.charCodeAt(id.length - 1) % BG_PALETTE.length;
+  return BG_PALETTE[idx];
 }
 
 export default function OshiList({ oshis, selectedOshiId, onSelect, onDelete }: Props) {
   if (oshis.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>🌸</Text>
-        <Text style={styles.emptyText}>まだ推しが登録されていません</Text>
-        <Text style={styles.emptySubText}>上のフォームから推しを登録しよう！</Text>
+      <View style={styles.empty}>
+        <Text style={styles.emptyEmoji}>🌸</Text>
+        <Text style={styles.emptyTitle}>推しがまだいません</Text>
+        <Text style={styles.emptyDesc}>上のフォームから推しを登録してみよう！</Text>
       </View>
     );
   }
@@ -52,33 +65,48 @@ export default function OshiList({ oshis, selectedOshiId, onSelect, onDelete }: 
     >
       {oshis.map((oshi) => {
         const isSelected = oshi.id === selectedOshiId;
+        const avatarBg = getAvatarBg(oshi.id);
+
         return (
           <TouchableOpacity
             key={oshi.id}
             style={[styles.card, isSelected && styles.cardSelected]}
             onPress={() => onSelect(oshi.id)}
-            activeOpacity={0.8}
+            activeOpacity={0.75}
           >
-            <View style={styles.iconCircle}>
-              <Text style={styles.icon}>{getGenreIcon(oshi.genre)}</Text>
+            {/* 選択中インジケーター */}
+            {isSelected && <View style={styles.selectedDot} />}
+
+            {/* アバター */}
+            <View style={[styles.avatar, { backgroundColor: avatarBg }]}>
+              <Text style={styles.avatarEmoji}>{getEmoji(oshi.genre)}</Text>
             </View>
-            <Text style={[styles.name, isSelected && styles.nameSelected]} numberOfLines={2}>
+
+            {/* 名前 */}
+            <Text
+              style={[styles.name, isSelected && styles.nameSelected]}
+              numberOfLines={2}
+            >
               {oshi.name}
             </Text>
+
+            {/* ジャンル */}
             {oshi.genre ? (
-              <Text style={[styles.genre, isSelected && styles.genreSelected]} numberOfLines={1}>
-                {oshi.genre}
-              </Text>
-            ) : null}
-            {isSelected && (
-              <View style={styles.selectedBadge}>
-                <Text style={styles.selectedBadgeText}>選択中 ✓</Text>
+              <View style={[styles.genreBadge, isSelected && styles.genreBadgeSelected]}>
+                <Text
+                  style={[styles.genreText, isSelected && styles.genreTextSelected]}
+                  numberOfLines={1}
+                >
+                  {oshi.genre}
+                </Text>
               </View>
-            )}
+            ) : null}
+
+            {/* 削除ボタン */}
             <TouchableOpacity
               style={styles.deleteBtn}
               onPress={() => onDelete(oshi.id)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Text style={styles.deleteBtnText}>✕</Text>
             </TouchableOpacity>
@@ -91,106 +119,125 @@ export default function OshiList({ oshis, selectedOshiId, onSelect, onDelete }: 
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-    gap: 12,
+    paddingHorizontal: 2,
+    paddingVertical: 6,
+    gap: 10,
   },
+
+  // カード
   card: {
-    width: 110,
+    width: 100,
     backgroundColor: COLORS.cardBg,
     borderRadius: RADIUS.card,
-    padding: 14,
+    paddingTop: 16,
+    paddingBottom: 12,
+    paddingHorizontal: 10,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'transparent',
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    borderColor: COLORS.border,
     position: 'relative',
+    ...SHADOW.card,
   },
   cardSelected: {
     borderColor: COLORS.primary,
-    backgroundColor: '#FFF0F6',
-    shadowColor: COLORS.primary,
-    shadowOpacity: 0.2,
-    elevation: 5,
+    backgroundColor: COLORS.primaryBg,
+    ...SHADOW.cardStrong,
   },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F5E6FF',
+  selectedDot: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 8,
+    height: 8,
+    borderRadius: RADIUS.circle,
+    backgroundColor: COLORS.primary,
+  },
+
+  // アバター
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: RADIUS.circle,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
   },
-  icon: {
-    fontSize: 24,
+  avatarEmoji: {
+    fontSize: 26,
   },
+
+  // テキスト
   name: {
     fontSize: 13,
     fontWeight: '700',
     color: COLORS.text,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+    lineHeight: 18,
   },
   nameSelected: {
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
   },
-  genre: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
+
+  // ジャンルバッジ
+  genreBadge: {
+    backgroundColor: COLORS.accentBg,
+    borderRadius: RADIUS.chip,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    maxWidth: 90,
+  },
+  genreBadgeSelected: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  genreText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.accent,
     textAlign: 'center',
   },
-  genreSelected: {
-    color: COLORS.primaryLight,
+  genreTextSelected: {
+    color: COLORS.primaryDark,
   },
-  selectedBadge: {
-    marginTop: 6,
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  selectedBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
-  },
+
+  // 削除ボタン
   deleteBtn: {
     position: 'absolute',
-    top: 6,
-    right: 6,
+    top: 7,
+    right: 7,
     width: 20,
     height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FFE0E8',
+    borderRadius: RADIUS.circle,
+    backgroundColor: '#FFE0EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   deleteBtnText: {
     fontSize: 9,
-    color: '#E05080',
-    fontWeight: '700',
+    color: COLORS.primaryDark,
+    fontWeight: '800',
   },
-  emptyContainer: {
+
+  // 空状態
+  empty: {
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: 28,
+    paddingHorizontal: 20,
   },
-  emptyIcon: {
-    fontSize: 36,
-    marginBottom: 8,
+  emptyEmoji: {
+    fontSize: 38,
+    marginBottom: 10,
   },
-  emptyText: {
+  emptyTitle: {
     fontSize: 14,
+    fontWeight: '700',
     color: COLORS.textSecondary,
-    fontWeight: '600',
     marginBottom: 4,
   },
-  emptySubText: {
+  emptyDesc: {
     fontSize: 12,
-    color: COLORS.placeholder,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

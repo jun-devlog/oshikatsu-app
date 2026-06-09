@@ -10,11 +10,23 @@ import {
 } from 'react-native';
 import { OshiLog, Oshi, CATEGORIES } from '../types/oshi';
 import { generateId, todayString } from '../utils/format';
-import { COLORS, RADIUS } from '../styles/theme';
+import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 
 type Props = {
   selectedOshi: Oshi | null;
   onAdd: (log: OshiLog) => void;
+};
+
+// カテゴリアイコン
+const CATEGORY_ICONS: Record<string, string> = {
+  配信: '📺',
+  ライブ: '🎤',
+  グッズ: '🛍️',
+  イベント: '🎪',
+  聖地巡礼: '🗺️',
+  感想: '💭',
+  支出: '💸',
+  その他: '📌',
 };
 
 export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
@@ -24,11 +36,17 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
   const [memo, setMemo] = useState('');
   const [amountStr, setAmountStr] = useState('');
 
+  // 推し未選択時
   if (!selectedOshi) {
     return (
-      <View style={styles.disabledCard}>
-        <Text style={styles.disabledIcon}>📝</Text>
-        <Text style={styles.disabledText}>推しを選択すると{'\n'}ログを記録できます</Text>
+      <View style={styles.placeholderCard}>
+        <View style={styles.placeholderIconWrap}>
+          <Text style={styles.placeholderIcon}>📖</Text>
+        </View>
+        <Text style={styles.placeholderTitle}>推しを選択してください</Text>
+        <Text style={styles.placeholderDesc}>
+          上のリストから推しをタップすると{'\n'}ログを記録できます
+        </Text>
       </View>
     );
   }
@@ -38,7 +56,9 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
       Alert.alert('入力エラー', 'タイトルを入力してください');
       return;
     }
-    const amount = amountStr ? parseInt(amountStr.replace(/,/g, ''), 10) : undefined;
+    const amount = amountStr
+      ? parseInt(amountStr.replace(/,/g, ''), 10)
+      : undefined;
     if (amountStr && isNaN(amount!)) {
       Alert.alert('入力エラー', '金額は数字で入力してください');
       return;
@@ -64,13 +84,31 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.sectionTitle}>📝 ログを記録する</Text>
-      <View style={styles.selectedBanner}>
-        <Text style={styles.selectedBannerText}>💕 {selectedOshi.name}</Text>
+      {/* ヘッダー */}
+      <View style={styles.cardHeader}>
+        <View style={styles.headerIconWrap}>
+          <Text style={styles.headerIcon}>📝</Text>
+        </View>
+        <View style={styles.headerTextArea}>
+          <Text style={styles.cardTitle}>推し活を記録する</Text>
+          <Text style={styles.cardSubtitle}>日記・イベント・支出などを残そう</Text>
+        </View>
       </View>
 
+      {/* 選択中推しバナー */}
+      <View style={styles.oshiBanner}>
+        <Text style={styles.oshiBannerIcon}>💕</Text>
+        <Text style={styles.oshiBannerName}>{selectedOshi.name}</Text>
+        {selectedOshi.genre ? (
+          <View style={styles.oshiBannerBadge}>
+            <Text style={styles.oshiBannerBadgeText}>{selectedOshi.genre}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      {/* 日付 */}
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>日付</Text>
+        <Text style={styles.label}>📅 日付</Text>
         <TextInput
           style={styles.input}
           value={date}
@@ -81,46 +119,54 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
         />
       </View>
 
+      {/* カテゴリ */}
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>カテゴリ</Text>
+        <Text style={styles.label}>🏷️ カテゴリ</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryRow}
+          contentContainerStyle={styles.chipRow}
         >
-          {CATEGORIES.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              style={[styles.categoryChip, category === cat && styles.categoryChipSelected]}
-              onPress={() => setCategory(cat)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[styles.categoryChipText, category === cat && styles.categoryChipTextSelected]}
+          {CATEGORIES.map((cat) => {
+            const isActive = category === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.chip, isActive && styles.chipActive]}
+                onPress={() => setCategory(cat)}
+                activeOpacity={0.7}
               >
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text style={styles.chipIcon}>{CATEGORY_ICONS[cat] ?? '📌'}</Text>
+                <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
+      {/* タイトル */}
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>タイトル *</Text>
+        <Text style={styles.label}>
+          ✏️ タイトル <Text style={styles.required}>*</Text>
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="例：夏ツアー初日、アクスタ購入"
           placeholderTextColor={COLORS.placeholder}
           value={title}
           onChangeText={setTitle}
+          returnKeyType="next"
         />
       </View>
 
+      {/* メモ */}
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>メモ</Text>
+        <Text style={styles.label}>💬 メモ</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
-          placeholder="感想・記念・気持ちなど自由に書こう"
+          placeholder="感想や気持ちを自由に書こう…"
           placeholderTextColor={COLORS.placeholder}
           value={memo}
           onChangeText={setMemo}
@@ -130,137 +176,219 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
         />
       </View>
 
+      {/* 金額 */}
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>金額（円）</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="例：3000"
-          placeholderTextColor={COLORS.placeholder}
-          value={amountStr}
-          onChangeText={setAmountStr}
-          keyboardType="numeric"
-        />
+        <Text style={styles.label}>💰 金額（円）</Text>
+        <View style={styles.amountInputWrap}>
+          <Text style={styles.amountPrefix}>¥</Text>
+          <TextInput
+            style={[styles.input, styles.amountInput]}
+            placeholder="0"
+            placeholderTextColor={COLORS.placeholder}
+            value={amountStr}
+            onChangeText={setAmountStr}
+            keyboardType="numeric"
+            returnKeyType="done"
+          />
+        </View>
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleAdd} activeOpacity={0.8}>
-        <Text style={styles.buttonText}>記録する 🌸</Text>
+      {/* 保存ボタン */}
+      <TouchableOpacity style={styles.button} onPress={handleAdd} activeOpacity={0.82}>
+        <Text style={styles.buttonText}>🌸 記録する</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // プレースホルダー
+  placeholderCard: {
+    backgroundColor: COLORS.cardBg,
+    borderRadius: RADIUS.card,
+    paddingVertical: 36,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+  },
+  placeholderIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.circle,
+    backgroundColor: COLORS.accentBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  placeholderIcon: { fontSize: 26 },
+  placeholderTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.accentDark,
+    marginBottom: 6,
+  },
+  placeholderDesc: {
+    fontSize: 13,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  // フォームカード
   card: {
     backgroundColor: COLORS.cardBg,
     borderRadius: RADIUS.card,
     padding: 20,
-    marginBottom: 16,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    ...SHADOW.card,
   },
-  disabledCard: {
-    backgroundColor: '#F8F8FC',
-    borderRadius: RADIUS.card,
-    padding: 28,
-    marginBottom: 16,
+  cardHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#E8E0F0',
-    borderStyle: 'dashed',
+    gap: 12,
+    marginBottom: 14,
   },
-  disabledIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+  headerIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.circle,
+    backgroundColor: COLORS.accentBg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  disabledText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  sectionTitle: {
-    fontSize: 17,
+  headerIcon: { fontSize: 20 },
+  headerTextArea: { flex: 1 },
+  cardTitle: {
+    fontSize: 16,
     fontWeight: '700',
-    color: COLORS.primary,
-    marginBottom: 12,
-    letterSpacing: 0.3,
+    color: COLORS.accentDark,
+    letterSpacing: 0.2,
   },
-  selectedBanner: {
-    backgroundColor: '#FFF0F6',
-    borderRadius: 10,
+  cardSubtitle: {
+    fontSize: 12,
+    color: COLORS.textTertiary,
+    marginTop: 1,
+  },
+
+  // 推しバナー
+  oshiBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primaryBg,
+    borderRadius: RADIUS.cardSm,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
     marginBottom: 16,
     borderLeftWidth: 3,
     borderLeftColor: COLORS.primary,
+    gap: 6,
   },
-  selectedBannerText: {
+  oshiBannerIcon: { fontSize: 16 },
+  oshiBannerName: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
+    flex: 1,
   },
-  inputGroup: {
-    marginBottom: 12,
+  oshiBannerBadge: {
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: RADIUS.chip,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
+  oshiBannerBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.primaryDark,
+  },
+
+  // 入力
+  inputGroup: { marginBottom: 14 },
   label: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: COLORS.textSecondary,
-    marginBottom: 6,
+    marginBottom: 7,
     letterSpacing: 0.2,
   },
+  required: { color: COLORS.primary },
   input: {
     borderWidth: 1.5,
     borderColor: COLORS.border,
     borderRadius: RADIUS.input,
     paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingVertical: 12,
     fontSize: 15,
     color: COLORS.text,
     backgroundColor: COLORS.inputBg,
   },
   textArea: {
-    minHeight: 80,
-    paddingTop: 11,
+    minHeight: 84,
+    paddingTop: 12,
   },
-  categoryRow: {
+  amountInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.input,
+    backgroundColor: COLORS.inputBg,
+    overflow: 'hidden',
+  },
+  amountPrefix: {
+    paddingHorizontal: 12,
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+  },
+  amountInput: {
+    flex: 1,
+    borderWidth: 0,
+    borderRadius: 0,
+    paddingLeft: 0,
+  },
+
+  // カテゴリチップ
+  chipRow: {
     gap: 8,
     paddingVertical: 2,
   },
-  categoryChip: {
-    paddingHorizontal: 14,
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 20,
+    borderRadius: RADIUS.chip,
     borderWidth: 1.5,
     borderColor: COLORS.border,
     backgroundColor: COLORS.inputBg,
   },
-  categoryChipSelected: {
+  chipActive: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
-  categoryChipText: {
+  chipIcon: { fontSize: 13 },
+  chipText: {
     fontSize: 13,
     fontWeight: '600',
     color: COLORS.textSecondary,
   },
-  categoryChipTextSelected: {
-    color: '#fff',
-  },
+  chipTextActive: { color: '#fff' },
+
+  // 保存ボタン
   button: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.primary,
     borderRadius: RADIUS.button,
-    paddingVertical: 13,
+    paddingVertical: 15,
     alignItems: 'center',
     marginTop: 4,
-    shadowColor: COLORS.accent,
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 5,
   },
   buttonText: {
     color: '#fff',
