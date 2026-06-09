@@ -9,8 +9,10 @@ import {
   ScrollView,
 } from 'react-native';
 import { OshiLog, Oshi, CATEGORIES } from '../types/oshi';
-import { generateId, todayString } from '../utils/format';
+import { generateId } from '../utils/format';
+import { getTodayString, formatDisplayDate, isValidDateString } from '../utils/date';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
+import DatePickerModal from './DatePickerModal';
 
 type Props = {
   selectedOshi: Oshi | null;
@@ -30,7 +32,10 @@ const CATEGORY_ICONS: Record<string, string> = {
 };
 
 export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
-  const [date, setDate] = useState(todayString());
+  // 日付状態 (YYYY-MM-DD)
+  const [dateStr, setDateStr] = useState(getTodayString());
+  const [isDatePickerVisible, setDatePickerVisible] = useState(false);
+
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
   const [title, setTitle] = useState('');
   const [memo, setMemo] = useState('');
@@ -52,6 +57,12 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
   }
 
   const handleAdd = () => {
+    // 日付チェック
+    if (!isValidDateString(dateStr)) {
+      Alert.alert('入力エラー', '正しい日付を選択してください');
+      return;
+    }
+
     if (!title.trim()) {
       Alert.alert('入力エラー', 'タイトルを入力してください');
       return;
@@ -67,7 +78,7 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
     const log: OshiLog = {
       id: generateId(),
       oshiId: selectedOshi.id,
-      date,
+      date: dateStr, // YYYY-MM-DD で保存
       category,
       title: title.trim(),
       memo: memo.trim(),
@@ -75,7 +86,9 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
       createdAt: new Date().toISOString(),
     };
     onAdd(log);
-    setDate(todayString());
+
+    // フォームリセット
+    setDateStr(getTodayString());
     setCategory(CATEGORIES[0]);
     setTitle('');
     setMemo('');
@@ -83,121 +96,141 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
   };
 
   return (
-    <View style={styles.card}>
-      {/* ヘッダー */}
-      <View style={styles.cardHeader}>
-        <View style={styles.headerIconWrap}>
-          <Text style={styles.headerIcon}>📝</Text>
-        </View>
-        <View style={styles.headerTextArea}>
-          <Text style={styles.cardTitle}>推し活を記録する</Text>
-          <Text style={styles.cardSubtitle}>日記・イベント・支出などを残そう</Text>
-        </View>
-      </View>
-
-      {/* 選択中推しバナー */}
-      <View style={styles.oshiBanner}>
-        <Text style={styles.oshiBannerIcon}>💕</Text>
-        <Text style={styles.oshiBannerName}>{selectedOshi.name}</Text>
-        {selectedOshi.genre ? (
-          <View style={styles.oshiBannerBadge}>
-            <Text style={styles.oshiBannerBadgeText}>{selectedOshi.genre}</Text>
+    <>
+      <View style={styles.card}>
+        {/* ヘッダー */}
+        <View style={styles.cardHeader}>
+          <View style={styles.headerIconWrap}>
+            <Text style={styles.headerIcon}>📝</Text>
           </View>
-        ) : null}
-      </View>
+          <View style={styles.headerTextArea}>
+            <Text style={styles.cardTitle}>推し活を記録する</Text>
+            <Text style={styles.cardSubtitle}>日記・イベント・支出などを残そう</Text>
+          </View>
+        </View>
 
-      {/* 日付 */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>📅 日付</Text>
-        <TextInput
-          style={styles.input}
-          value={date}
-          onChangeText={setDate}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={COLORS.placeholder}
-          keyboardType="numbers-and-punctuation"
-        />
-      </View>
+        {/* 選択中推しバナー */}
+        <View style={styles.oshiBanner}>
+          <Text style={styles.oshiBannerIcon}>💕</Text>
+          <Text style={styles.oshiBannerName}>{selectedOshi.name}</Text>
+          {selectedOshi.genre ? (
+            <View style={styles.oshiBannerBadge}>
+              <Text style={styles.oshiBannerBadgeText}>{selectedOshi.genre}</Text>
+            </View>
+          ) : null}
+        </View>
 
-      {/* カテゴリ */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>🏷️ カテゴリ</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipRow}
-        >
-          {CATEGORIES.map((cat) => {
-            const isActive = category === cat;
-            return (
-              <TouchableOpacity
-                key={cat}
-                style={[styles.chip, isActive && styles.chipActive]}
-                onPress={() => setCategory(cat)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.chipIcon}>{CATEGORY_ICONS[cat] ?? '📌'}</Text>
-                <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-                  {cat}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+        {/* 日付（タップでモーダル起動） */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>📅 日付 <Text style={styles.required}>*</Text></Text>
+          <TouchableOpacity
+            style={styles.dateInput}
+            onPress={() => setDatePickerVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.dateInputText,
+                !dateStr && styles.dateInputPlaceholder,
+              ]}
+            >
+              {dateStr ? formatDisplayDate(dateStr) : '日付を選択'}
+            </Text>
+            <Text style={styles.dateInputIcon}>📅</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* タイトル */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>
-          ✏️ タイトル <Text style={styles.required}>*</Text>
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="例：夏ツアー初日、アクスタ購入"
-          placeholderTextColor={COLORS.placeholder}
-          value={title}
-          onChangeText={setTitle}
-          returnKeyType="next"
-        />
-      </View>
+        {/* カテゴリ */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>🏷️ カテゴリ</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+          >
+            {CATEGORIES.map((cat) => {
+              const isActive = category === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  style={[styles.chip, isActive && styles.chipActive]}
+                  onPress={() => setCategory(cat)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.chipIcon}>{CATEGORY_ICONS[cat] ?? '📌'}</Text>
+                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
-      {/* メモ */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>💬 メモ</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="感想や気持ちを自由に書こう…"
-          placeholderTextColor={COLORS.placeholder}
-          value={memo}
-          onChangeText={setMemo}
-          multiline
-          numberOfLines={3}
-          textAlignVertical="top"
-        />
-      </View>
-
-      {/* 金額 */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>💰 金額（円）</Text>
-        <View style={styles.amountInputWrap}>
-          <Text style={styles.amountPrefix}>¥</Text>
+        {/* タイトル */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>
+            ✏️ タイトル <Text style={styles.required}>*</Text>
+          </Text>
           <TextInput
-            style={[styles.input, styles.amountInput]}
-            placeholder="0"
+            style={styles.input}
+            placeholder="例：夏ツアー初日、アクスタ購入"
             placeholderTextColor={COLORS.placeholder}
-            value={amountStr}
-            onChangeText={setAmountStr}
-            keyboardType="numeric"
-            returnKeyType="done"
+            value={title}
+            onChangeText={setTitle}
+            returnKeyType="next"
           />
         </View>
+
+        {/* メモ */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>💬 メモ</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="感想や気持ちを自由に書こう…"
+            placeholderTextColor={COLORS.placeholder}
+            value={memo}
+            onChangeText={setMemo}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+          />
+        </View>
+
+        {/* 金額 */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>💰 金額（円）</Text>
+          <View style={styles.amountInputWrap}>
+            <Text style={styles.amountPrefix}>¥</Text>
+            <TextInput
+              style={[styles.input, styles.amountInput]}
+              placeholder="0"
+              placeholderTextColor={COLORS.placeholder}
+              value={amountStr}
+              onChangeText={setAmountStr}
+              keyboardType="numeric"
+              returnKeyType="done"
+            />
+          </View>
+        </View>
+
+        {/* 保存ボタン */}
+        <TouchableOpacity style={styles.button} onPress={handleAdd} activeOpacity={0.82}>
+          <Text style={styles.buttonText}>🌸 記録する</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* 保存ボタン */}
-      <TouchableOpacity style={styles.button} onPress={handleAdd} activeOpacity={0.82}>
-        <Text style={styles.buttonText}>🌸 記録する</Text>
-      </TouchableOpacity>
-    </View>
+      {/* カレンダーモーダル */}
+      <DatePickerModal
+        visible={isDatePickerVisible}
+        currentValue={dateStr}
+        onSelect={(newDate) => {
+          setDateStr(newDate);
+          setDatePickerVisible(false);
+        }}
+        onClose={() => setDatePickerVisible(false)}
+      />
+    </>
   );
 }
 
@@ -313,6 +346,31 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   required: { color: COLORS.primary },
+  
+  // ── 日付入力（変更点） ──
+  dateInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.input,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: COLORS.inputBg,
+  },
+  dateInputText: {
+    fontSize: 15,
+    color: COLORS.text,
+    fontWeight: '500',
+  },
+  dateInputPlaceholder: {
+    color: COLORS.placeholder,
+  },
+  dateInputIcon: {
+    fontSize: 16,
+  },
+
   input: {
     borderWidth: 1.5,
     borderColor: COLORS.border,
