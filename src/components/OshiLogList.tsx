@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
 import { OshiLog, Oshi } from '../types/oshi';
 import { formatAmount, formatDate } from '../utils/format';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
@@ -105,6 +105,11 @@ export default function OshiLogList({ logs, oshis, onDelete }: Props) {
             {/* ── タイトル ── */}
             <Text style={styles.title} numberOfLines={2}>{log.title}</Text>
 
+            {/* ── 画像 ── */}
+            {log.imageUri ? (
+              <Image source={{ uri: log.imageUri }} style={styles.logImage} resizeMode="cover" />
+            ) : null}
+
             {/* ── メモ ── */}
             {log.memo ? (
               <Text style={styles.memo} numberOfLines={3}>
@@ -204,6 +209,15 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 4,
     letterSpacing: 0.1,
+  },
+
+  // 画像
+  logImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: RADIUS.cardSm,
+    marginTop: 6,
+    marginBottom: 8,
   },
 
   // メモ

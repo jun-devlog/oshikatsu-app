@@ -7,7 +7,9 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { OshiLog, Oshi, CATEGORIES } from '../types/oshi';
 import { generateId } from '../utils/format';
 import { getTodayString, formatDisplayDate, isValidDateString } from '../utils/date';
@@ -40,6 +42,22 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
   const [title, setTitle] = useState('');
   const [memo, setMemo] = useState('');
   const [amountStr, setAmountStr] = useState('');
+  const [imageUri, setImageUri] = useState<string | null>(null);
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      console.warn('Image picker error:', e);
+    }
+  };
 
   // 推し未選択時
   if (!selectedOshi) {
@@ -83,6 +101,7 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
       title: title.trim(),
       memo: memo.trim(),
       amount,
+      imageUri: imageUri || undefined,
       createdAt: new Date().toISOString(),
     };
     onAdd(log);
@@ -93,6 +112,7 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
     setTitle('');
     setMemo('');
     setAmountStr('');
+    setImageUri(null);
   };
 
   return (
@@ -195,6 +215,27 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
             numberOfLines={3}
             textAlignVertical="top"
           />
+        </View>
+
+        {/* 画像添付 */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>📸 画像</Text>
+          {imageUri ? (
+            <View style={styles.imagePreviewWrap}>
+              <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
+              <TouchableOpacity
+                style={styles.imageClearBtn}
+                onPress={() => setImageUri(null)}
+              >
+                <Text style={styles.imageClearText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.imagePickBtn} onPress={pickImage} activeOpacity={0.7}>
+              <Text style={styles.imagePickEmoji}>🖼️</Text>
+              <Text style={styles.imagePickText}>画像を選択する</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* 金額 */}
@@ -434,6 +475,53 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   chipTextActive: { color: '#fff' },
+
+  // 画像添付
+  imagePickBtn: {
+    backgroundColor: COLORS.inputBg,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    borderRadius: RADIUS.button,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  imagePickEmoji: { fontSize: 18 },
+  imagePickText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  imagePreviewWrap: {
+    position: 'relative',
+    borderRadius: RADIUS.button,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  imagePreview: {
+    width: '100%',
+    height: 140,
+  },
+  imageClearBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageClearText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
 
   // 保存ボタン
   button: {

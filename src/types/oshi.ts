@@ -13,6 +13,7 @@ export type OshiLog = {
   title: string;
   memo: string;
   amount?: number;
+  imageUri?: string; // 添付画像のURI（任意）
   createdAt: string;
 };
 
