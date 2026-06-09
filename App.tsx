@@ -26,6 +26,7 @@ export default function App() {
   const {
     oshis,
     logs,
+    goods,
     selectedOshi,
     selectedOshiId,
     loading,
@@ -34,6 +35,8 @@ export default function App() {
     selectOshi,
     addLog,
     deleteLog,
+    addGoods,
+    deleteGoods,
   } = useOshiStorage();
 
   // 推し選択トグル（同じ推しをタップしたら選択解除）
@@ -79,7 +82,15 @@ export default function App() {
       case 'calendar':
         return <CalendarTab logs={logs} oshis={oshis} />;
       case 'goods':
-        return <GoodsTab logs={logs} oshis={oshis} />;
+        return (
+          <GoodsTab
+            goods={goods}
+            oshis={oshis}
+            selectedOshi={selectedOshi}
+            onAddGoods={addGoods}
+            onDeleteGoods={deleteGoods}
+          />
+        );
       case 'budget':
         return <BudgetTab logs={logs} oshis={oshis} />;
       case 'mypage':
