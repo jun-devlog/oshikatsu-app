@@ -212,9 +212,9 @@ export default function BudgetTab({ logs, oshis, goods = [] }: Props) {
                 <View key={item.id} style={styles.logRow}>
                   <View style={styles.logLeft}>
                     <Text style={styles.logDate}>{formatDateShort(item.date)}</Text>
-                    <Text style={styles.logTitle}>{item.title}</Text>
+                    <Text style={styles.logTitle} numberOfLines={1}>{item.title}</Text>
                     <View style={styles.logMeta}>
-                      <Text style={styles.logOshi}>💕 {getOshiName(item.oshiId)}</Text>
+                      <Text style={styles.logOshi} numberOfLines={1}>💕 {getOshiName(item.oshiId)}</Text>
                       <View
                         style={[
                           styles.logCatBadge,

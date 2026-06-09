@@ -7,6 +7,27 @@ const LOG_KEY = 'oshikatsu_logs';
 const GOODS_KEY = 'oshikatsu_goods';
 const SELECTED_KEY = 'oshikatsu_selected_oshi_id';
 
+/** JSON パースの安全ラッパー */
+function safeJsonParse<T>(json: string | null, fallback: T): T {
+  if (!json) return fallback;
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? (parsed as T) : fallback;
+  } catch {
+    console.warn('[推しログ] JSONパースに失敗しました。データをリセットします。');
+    return fallback;
+  }
+}
+
+/** AsyncStorage 書き込みの安全ラッパー */
+async function safeSave(key: string, data: unknown): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.warn(`[推しログ] データ保存に失敗しました (key=${key})`, e);
+  }
+}
+
 export function useOshiStorage() {
   const [oshis, setOshis] = useState<Oshi[]>([]);
   const [logs, setLogs] = useState<OshiLog[]>([]);
@@ -24,12 +45,12 @@ export function useOshiStorage() {
           AsyncStorage.getItem(GOODS_KEY),
           AsyncStorage.getItem(SELECTED_KEY),
         ]);
-        if (oshiJson) setOshis(JSON.parse(oshiJson));
-        if (logJson) setLogs(JSON.parse(logJson));
-        if (goodsJson) setGoods(JSON.parse(goodsJson));
+        setOshis(safeJsonParse<Oshi[]>(oshiJson, []));
+        setLogs(safeJsonParse<OshiLog[]>(logJson, []));
+        setGoods(safeJsonParse<OshiGoods[]>(goodsJson, []));
         if (selectedJson) setSelectedOshiId(selectedJson);
       } catch (e) {
-        console.error('load error', e);
+        console.warn('[推しログ] データ読み込みに失敗しました。初期状態で起動します。', e);
       } finally {
         setLoading(false);
       }
@@ -41,7 +62,7 @@ export function useOshiStorage() {
   const addOshi = useCallback(async (oshi: Oshi) => {
     setOshis((prev) => {
       const next = [...prev, oshi];
-      AsyncStorage.setItem(OSHI_KEY, JSON.stringify(next)).catch(console.error);
+      safeSave(OSHI_KEY, next);
       return next;
     });
   }, []);
@@ -50,13 +71,15 @@ export function useOshiStorage() {
   const deleteOshi = useCallback(async (id: string) => {
     setOshis((prev) => {
       const next = prev.filter((o) => o.id !== id);
-      AsyncStorage.setItem(OSHI_KEY, JSON.stringify(next)).catch(console.error);
+      safeSave(OSHI_KEY, next);
       return next;
     });
     // 選択中の推しが削除された場合はリセット
     setSelectedOshiId((prev) => {
       if (prev === id) {
-        AsyncStorage.removeItem(SELECTED_KEY).catch(console.error);
+        AsyncStorage.removeItem(SELECTED_KEY).catch(() =>
+          console.warn('[推しログ] 選択推しリセットに失敗しました')
+        );
         return null;
       }
       return prev;
@@ -64,12 +87,12 @@ export function useOshiStorage() {
     // その推しのログとグッズも削除
     setLogs((prev) => {
       const next = prev.filter((l) => l.oshiId !== id);
-      AsyncStorage.setItem(LOG_KEY, JSON.stringify(next)).catch(console.error);
+      safeSave(LOG_KEY, next);
       return next;
     });
     setGoods((prev) => {
       const next = prev.filter((g) => g.oshiId !== id);
-      AsyncStorage.setItem(GOODS_KEY, JSON.stringify(next)).catch(console.error);
+      safeSave(GOODS_KEY, next);
       return next;
     });
   }, []);
@@ -77,10 +100,14 @@ export function useOshiStorage() {
   // 推し選択
   const selectOshi = useCallback(async (id: string | null) => {
     setSelectedOshiId(id);
-    if (id) {
-      await AsyncStorage.setItem(SELECTED_KEY, id);
-    } else {
-      await AsyncStorage.removeItem(SELECTED_KEY);
+    try {
+      if (id) {
+        await AsyncStorage.setItem(SELECTED_KEY, id);
+      } else {
+        await AsyncStorage.removeItem(SELECTED_KEY);
+      }
+    } catch (e) {
+      console.warn('[推しログ] 選択推しの保存に失敗しました', e);
     }
   }, []);
 
@@ -88,7 +115,7 @@ export function useOshiStorage() {
   const addLog = useCallback(async (log: OshiLog) => {
     setLogs((prev) => {
       const next = [log, ...prev];
-      AsyncStorage.setItem(LOG_KEY, JSON.stringify(next)).catch(console.error);
+      safeSave(LOG_KEY, next);
       return next;
     });
   }, []);
@@ -97,7 +124,7 @@ export function useOshiStorage() {
   const deleteLog = useCallback(async (id: string) => {
     setLogs((prev) => {
       const next = prev.filter((l) => l.id !== id);
-      AsyncStorage.setItem(LOG_KEY, JSON.stringify(next)).catch(console.error);
+      safeSave(LOG_KEY, next);
       return next;
     });
   }, []);
@@ -106,7 +133,7 @@ export function useOshiStorage() {
   const addGoods = useCallback(async (item: OshiGoods) => {
     setGoods((prev) => {
       const next = [item, ...prev];
-      AsyncStorage.setItem(GOODS_KEY, JSON.stringify(next)).catch(console.error);
+      safeSave(GOODS_KEY, next);
       return next;
     });
   }, []);
@@ -115,7 +142,7 @@ export function useOshiStorage() {
   const deleteGoods = useCallback(async (id: string) => {
     setGoods((prev) => {
       const next = prev.filter((g) => g.id !== id);
-      AsyncStorage.setItem(GOODS_KEY, JSON.stringify(next)).catch(console.error);
+      safeSave(GOODS_KEY, next);
       return next;
     });
   }, []);

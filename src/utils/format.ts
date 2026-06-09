@@ -7,15 +7,17 @@ export function formatAmount(amount: number): string {
 
 /**
  * 日付文字列を「2025年7月12日」形式にフォーマットする
+ * タイムゾーン問題を避けるため文字列を直接パース
  */
 export function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return dateStr;
-  return date.toLocaleDateString('ja-JP', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return dateStr;
+  return `${year}年${month}月${day}日`;
 }
 
 /**
@@ -23,11 +25,13 @@ export function formatDate(dateStr: string): string {
  * タイムゾーン問題を避けるため文字列を直接パース
  */
 export function formatDateShort(dateStr: string): string {
+  if (!dateStr) return '';
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   const year = parseInt(parts[0], 10);
   const month = parseInt(parts[1], 10);
   const day = parseInt(parts[2], 10);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return dateStr;
   const d = new Date(year, month - 1, day);
   if (isNaN(d.getTime())) return dateStr;
   const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];

@@ -186,11 +186,11 @@ export default function CalendarTab({ logs, oshis }: Props) {
               <View key={log.id} style={styles.eventCard}>
                 <View style={[styles.eventBar, { backgroundColor: barColor }]} />
                 <View style={styles.eventContent}>
-                  <Text style={styles.eventTitle}>
+                  <Text style={styles.eventTitle} numberOfLines={2}>
                     {displayDate} {log.title}
                   </Text>
                   <View style={styles.eventSubInfo}>
-                    <Text style={styles.eventOshi}>💕 {getOshiName(log.oshiId)}</Text>
+                    <Text style={styles.eventOshi} numberOfLines={1}>💕 {getOshiName(log.oshiId)}</Text>
                     {log.amount != null && (
                       <Text style={styles.eventAmount}>-{formatAmount(log.amount)}</Text>
                     )}

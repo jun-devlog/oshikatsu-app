@@ -7,6 +7,7 @@ import OshiLogForm from '../components/OshiLogForm';
 import OshiLogList from '../components/OshiLogList';
 import SectionHeader from '../components/SectionHeader';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
+import { formatAmount } from '../utils/format';
 
 type Props = {
   oshis: Oshi[];
@@ -42,7 +43,7 @@ export default function HomeTab({
   onDeleteLog,
 }: Props) {
   const totalAmount = logs
-    .filter((l) => l.amount != null)
+    .filter((l) => l.amount != null && l.amount > 0)
     .reduce((sum, l) => sum + (l.amount ?? 0), 0);
 
   return (
@@ -88,8 +89,8 @@ export default function HomeTab({
           </View>
           <View style={styles.summaryDiv} />
           <View style={styles.summaryItem}>
-            <Text style={[styles.summaryVal, styles.summaryValAmount]}>
-              ¥{totalAmount.toLocaleString('ja-JP')}
+            <Text style={[styles.summaryVal, styles.summaryValAmount]} numberOfLines={1}>
+              {formatAmount(totalAmount)}
             </Text>
             <Text style={styles.summaryLabel}>累計支出</Text>
           </View>
@@ -133,7 +134,7 @@ export default function HomeTab({
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { paddingBottom: 24 },
+  content: { paddingBottom: 40 },
 
   // ヘッダー
   header: {

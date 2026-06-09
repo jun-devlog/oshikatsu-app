@@ -297,14 +297,14 @@ export default function GoodsTab({
                     </View>
                   </View>
 
-                  <Text style={styles.itemName}>{item.name}</Text>
+                  <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
                   
                   <View style={styles.itemSubRow}>
-                    <Text style={styles.itemOshi}>💕 {getOshiName(item.oshiId)}</Text>
-                    <Text style={styles.itemDate}>📅 {formatDisplayDate(item.purchaseDate)}</Text>
+                    <Text style={styles.itemOshi} numberOfLines={1}>💕 {getOshiName(item.oshiId)}</Text>
+                    <Text style={styles.itemDate} numberOfLines={1}>📅 {formatDisplayDate(item.purchaseDate)}</Text>
                   </View>
 
-                  {item.price != null && (
+                  {item.price != null && item.price > 0 && (
                     <Text style={styles.itemPrice}>{formatAmount(item.price)}</Text>
                   )}
 

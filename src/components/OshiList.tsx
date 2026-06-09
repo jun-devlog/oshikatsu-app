@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Oshi } from '../types/oshi';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
@@ -57,6 +58,21 @@ export default function OshiList({ oshis, selectedOshiId, onSelect, onDelete }: 
     );
   }
 
+  const handleDelete = (oshi: Oshi) => {
+    Alert.alert(
+      '推しを削除',
+      `「${oshi.name}」を削除しますか？\n\n関連するログ・グッズも一緒に削除されます。`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '削除する',
+          style: 'destructive',
+          onPress: () => onDelete(oshi.id),
+        },
+      ]
+    );
+  };
+
   return (
     <ScrollView
       horizontal
@@ -105,7 +121,7 @@ export default function OshiList({ oshis, selectedOshiId, onSelect, onDelete }: 
             {/* 削除ボタン */}
             <TouchableOpacity
               style={styles.deleteBtn}
-              onPress={() => onDelete(oshi.id)}
+              onPress={() => handleDelete(oshi)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Text style={styles.deleteBtnText}>✕</Text>

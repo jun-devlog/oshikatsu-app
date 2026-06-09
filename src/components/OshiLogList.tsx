@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { OshiLog, Oshi } from '../types/oshi';
 import { formatAmount, formatDate } from '../utils/format';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
@@ -51,6 +51,21 @@ export default function OshiLogList({ logs, oshis, onDelete }: Props) {
   const getOshiName = (oshiId: string) =>
     oshis.find((o) => o.id === oshiId)?.name ?? '不明';
 
+  const handleDelete = (log: OshiLog) => {
+    Alert.alert(
+      'ログを削除',
+      `「${log.title}」を削除しますか？`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '削除する',
+          style: 'destructive',
+          onPress: () => onDelete(log.id),
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       {logs.map((log) => {
@@ -77,7 +92,7 @@ export default function OshiLogList({ logs, oshis, onDelete }: Props) {
               <View style={styles.rowSpacer} />
               <TouchableOpacity
                 style={styles.deleteBtn}
-                onPress={() => onDelete(log.id)}
+                onPress={() => handleDelete(log)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Text style={styles.deleteBtnText}>✕</Text>
@@ -85,10 +100,10 @@ export default function OshiLogList({ logs, oshis, onDelete }: Props) {
             </View>
 
             {/* ── 推し名 ── */}
-            <Text style={styles.oshiName}>💕 {getOshiName(log.oshiId)}</Text>
+            <Text style={styles.oshiName} numberOfLines={1}>💕 {getOshiName(log.oshiId)}</Text>
 
             {/* ── タイトル ── */}
-            <Text style={styles.title}>{log.title}</Text>
+            <Text style={styles.title} numberOfLines={2}>{log.title}</Text>
 
             {/* ── メモ ── */}
             {log.memo ? (
@@ -98,7 +113,7 @@ export default function OshiLogList({ logs, oshis, onDelete }: Props) {
             ) : null}
 
             {/* ── 金額（LP 収支管理画面スタイル） ── */}
-            {log.amount != null && (
+            {log.amount != null && log.amount > 0 && (
               <View style={styles.amountRow}>
                 <Text style={styles.amountLabel}>支出</Text>
                 <Text style={styles.amountValue}>
