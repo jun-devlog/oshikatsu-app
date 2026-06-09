@@ -5,9 +5,13 @@ import { formatAmount } from '../utils/format';
 import { getTodayString, parseDateString, toDateString, generateCalendarWeeks } from '../utils/date';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 
+import OshiSelectorTabs from '../components/OshiFilterToggle';
+
 type Props = {
   logs: OshiLog[];
   oshis: Oshi[];
+  selectedOshiId: string | null;
+  onSelectOshi: (id: string | null) => void;
 };
 
 const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -24,7 +28,12 @@ const EVENT_COLORS: Record<string, string> = {
   その他: '#AFA0C8', // 薄紫
 };
 
-export default function CalendarTab({ logs, oshis }: Props) {
+export default function CalendarTab({
+  logs,
+  oshis,
+  selectedOshiId,
+  onSelectOshi,
+}: Props) {
   const todayStr = getTodayString();
   const todayDate = parseDateString(todayStr)!;
 
@@ -62,20 +71,35 @@ export default function CalendarTab({ logs, oshis }: Props) {
     setSelectedStr(toDateString(new Date(viewYear, viewMonth, day)));
   };
 
-  // カレンダーのグリッド生成
-  const weeks = useMemo(() => generateCalendarWeeks(viewYear, viewMonth), [viewYear, viewMonth]);
+  // フィルタ適用
+  const filteredLogs = useMemo(() => {
+    if (selectedOshiId) {
+      return logs.filter((l) => l.oshiId === selectedOshiId);
+    }
+    return logs;
+  }, [logs, selectedOshiId]);
 
-  // 選択中の日付のログ
+  // カレンダーマトリックス生成
+  const weeks = useMemo(() => {
+    return generateCalendarWeeks(viewYear, viewMonth);
+  }, [viewYear, viewMonth]);
+
+  // 選択日のログ一覧
   const selectedLogs = useMemo(() => {
-    return logs.filter(log => log.date === selectedStr);
-  }, [logs, selectedStr]);
+    return filteredLogs.filter((l) => l.date === selectedStr);
+  }, [filteredLogs, selectedStr]);
+
+  // その日にイベント(ログ)があるかどうか
+  const getEventForDate = (dateStr: string) => {
+    return filteredLogs.find((l) => l.date === dateStr);
+  };
 
   // 特定の日の色（最初のイベントの色を返す）
   const getDayColor = (day: number) => {
     const dStr = toDateString(new Date(viewYear, viewMonth, day));
-    const dayLogs = logs.filter(log => log.date === dStr);
-    if (dayLogs.length > 0) {
-      return EVENT_COLORS[dayLogs[0].category] ?? EVENT_COLORS['その他'];
+    const dayEvent = getEventForDate(dStr);
+    if (dayEvent) {
+      return EVENT_COLORS[dayEvent.category] ?? EVENT_COLORS['その他'];
     }
     return null;
   };
@@ -92,6 +116,15 @@ export default function CalendarTab({ logs, oshis }: Props) {
         <View style={styles.headerRow}>
           <Text style={styles.headerIcon}>📅</Text>
           <Text style={styles.headerTitle}>イベントカレンダー</Text>
+        </View>
+
+        {/* フィルタ */}
+        <View style={{ marginBottom: 16 }}>
+          <OshiSelectorTabs
+            oshis={oshis}
+            selectedOshiId={selectedOshiId}
+            onSelect={onSelectOshi}
+          />
         </View>
 
         {/* 月ナビゲーション */}

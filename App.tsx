@@ -11,6 +11,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useOshiStorage } from './src/hooks/useOshiStorage';
 import BottomNav, { TabKey } from './src/components/BottomNav';
+import OshiSelectorTabs from './src/components/OshiFilterToggle';
 import HomeTab from './src/screens/HomeTab';
 import CalendarTab from './src/screens/CalendarTab';
 import GoodsTab from './src/screens/GoodsTab';
@@ -21,6 +22,8 @@ import { COLORS } from './src/styles/theme';
 export default function App() {
   // ── タブ切り替え状態 ──
   const [activeTab, setActiveTab] = useState<TabKey>('home');
+
+  // ── フィルタモード（削除：selectedOshiIdに統一） ──
 
   // ── データ管理（useOshiStorage に全て集約） ──
   const {
@@ -40,8 +43,12 @@ export default function App() {
   } = useOshiStorage();
 
   // 推し選択トグル（同じ推しをタップしたら選択解除）
-  const handleSelectOshi = (id: string) => {
-    selectOshi(id === selectedOshiId ? null : id);
+  const handleSelectOshi = (id: string | null) => {
+    if (id === null) {
+      selectOshi(null);
+    } else {
+      selectOshi(id === selectedOshiId ? null : id);
+    }
   };
 
   // ── ローディング画面 ──
@@ -81,19 +88,37 @@ export default function App() {
           />
         );
       case 'calendar':
-        return <CalendarTab logs={logs} oshis={oshis} />;
+        return (
+          <CalendarTab
+            logs={logs}
+            oshis={oshis}
+            selectedOshiId={selectedOshiId}
+            onSelectOshi={handleSelectOshi}
+          />
+        );
       case 'goods':
         return (
           <GoodsTab
             goods={goods}
             oshis={oshis}
             selectedOshi={selectedOshi}
+            selectedOshiId={selectedOshiId}
+            onSelectOshi={handleSelectOshi}
             onAddGoods={addGoods}
             onDeleteGoods={deleteGoods}
           />
         );
       case 'budget':
-        return <BudgetTab logs={logs} oshis={oshis} goods={goods} />;
+        return (
+          <BudgetTab
+            logs={logs}
+            oshis={oshis}
+            goods={goods}
+            selectedOshi={selectedOshi}
+            selectedOshiId={selectedOshiId}
+            onSelectOshi={handleSelectOshi}
+          />
+        );
       case 'mypage':
         return <MyPageTab oshis={oshis} logs={logs} goods={goods} />;
     }

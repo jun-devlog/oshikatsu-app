@@ -13,11 +13,14 @@ import { generateId, formatAmount } from '../utils/format';
 import { getTodayString, formatDisplayDate, isValidDateString } from '../utils/date';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 import DatePickerModal from '../components/DatePickerModal';
+import OshiSelectorTabs from '../components/OshiFilterToggle';
 
 type Props = {
   goods: OshiGoods[];
   oshis: Oshi[];
   selectedOshi: Oshi | null;
+  selectedOshiId: string | null;
+  onSelectOshi: (id: string | null) => void;
   onAddGoods: (item: OshiGoods) => void;
   onDeleteGoods: (id: string) => void;
 };
@@ -45,6 +48,8 @@ export default function GoodsTab({
   goods,
   oshis,
   selectedOshi,
+  selectedOshiId,
+  onSelectOshi,
   onAddGoods,
   onDeleteGoods,
 }: Props) {
@@ -113,14 +118,22 @@ export default function GoodsTab({
     ]);
   };
 
+  // フィルタ適用
+  const filteredGoods = useMemo(() => {
+    if (selectedOshiId) {
+      return goods.filter((g) => g.oshiId === selectedOshiId);
+    }
+    return goods;
+  }, [goods, selectedOshiId]);
+
   // 新しい順にソート
   const sortedGoods = useMemo(() => {
-    return [...goods].sort((a, b) => {
+    return [...filteredGoods].sort((a, b) => {
       if (a.createdAt < b.createdAt) return 1;
       if (a.createdAt > b.createdAt) return -1;
       return 0;
     });
-  }, [goods]);
+  }, [filteredGoods]);
 
   return (
     <>
@@ -274,6 +287,13 @@ export default function GoodsTab({
 
           {/* 一覧 */}
           <Text style={styles.listTitle}>グッズ一覧 ({sortedGoods.length})</Text>
+          <View style={styles.filterWrap}>
+            <OshiSelectorTabs
+              oshis={oshis}
+              selectedOshiId={selectedOshiId}
+              onSelect={onSelectOshi}
+            />
+          </View>
           {sortedGoods.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>📦</Text>
@@ -486,6 +506,7 @@ const styles = StyleSheet.create({
     fontSize: 16, fontWeight: '800', color: COLORS.accentDark,
     marginBottom: 12, marginLeft: 4,
   },
+  filterWrap: { marginBottom: 12 },
   empty: {
     alignItems: 'center', paddingVertical: 40,
     backgroundColor: COLORS.cardBg, borderRadius: RADIUS.card,

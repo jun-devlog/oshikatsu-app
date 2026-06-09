@@ -5,10 +5,15 @@ import { formatAmount, formatDateShort } from '../utils/format';
 import { getTodayString } from '../utils/date';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 
+import OshiSelectorTabs from '../components/OshiFilterToggle';
+
 type Props = {
   logs: OshiLog[];
   oshis: Oshi[];
   goods?: OshiGoods[];
+  selectedOshi: Oshi | null;
+  selectedOshiId: string | null;
+  onSelectOshi: (id: string | null) => void;
 };
 
 const CAT_ICONS: Record<string, string> = {
@@ -33,13 +38,21 @@ type ExpenseItem = {
   createdAt: string;
 };
 
-export default function BudgetTab({ logs, oshis, goods = [] }: Props) {
+export default function BudgetTab({
+  logs,
+  oshis,
+  goods = [],
+  selectedOshi,
+  selectedOshiId,
+  onSelectOshi,
+}: Props) {
   // 1. 支出データを統合
   const expenses = useMemo(() => {
     const items: ExpenseItem[] = [];
 
     // ログ由来の支出
     logs.forEach((log) => {
+      if (selectedOshiId && log.oshiId !== selectedOshiId) return;
       if (log.amount != null && log.amount > 0) {
         items.push({
           id: `log_${log.id}`,
@@ -56,6 +69,7 @@ export default function BudgetTab({ logs, oshis, goods = [] }: Props) {
 
     // グッズ由来の支出
     goods.forEach((g) => {
+      if (selectedOshiId && g.oshiId !== selectedOshiId) return;
       if (g.price != null && g.price > 0) {
         items.push({
           id: `goods_${g.id}`,
@@ -71,7 +85,7 @@ export default function BudgetTab({ logs, oshis, goods = [] }: Props) {
     });
 
     return items;
-  }, [logs, goods]);
+  }, [logs, goods, selectedOshiId]);
 
   // 2. 集計
   const thisMonthPrefix = getTodayString().substring(0, 7); // YYYY-MM
@@ -131,7 +145,15 @@ export default function BudgetTab({ logs, oshis, goods = [] }: Props) {
       </View>
 
       <View style={styles.body}>
-        {/* ── 1. サマリーカード ── */}
+        <View style={{ marginBottom: 16 }}>
+          <OshiSelectorTabs
+            oshis={oshis}
+            selectedOshiId={selectedOshiId}
+            onSelect={onSelectOshi}
+          />
+        </View>
+
+            {/* ── 1. サマリーカード ── */}
         <View style={styles.summaryGrid}>
           {/* 今月の支出 */}
           <View style={[styles.summaryCard, styles.summaryCardMain]}>

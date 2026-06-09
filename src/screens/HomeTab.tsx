@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, View, Text, StyleSheet } from 'react-native';
 import { Oshi, OshiLog, OshiGoods } from '../types/oshi';
 import OshiForm from '../components/OshiForm';
@@ -17,7 +17,7 @@ type Props = {
   selectedOshiId: string | null;
   onAddOshi: (oshi: Oshi) => void;
   onDeleteOshi: (id: string) => void;
-  onSelectOshi: (id: string) => void; // toggle logic はApp.tsx側で処理済み
+  onSelectOshi: (id: string) => void;
   onAddLog: (log: OshiLog) => void;
   onDeleteLog: (id: string) => void;
 };
@@ -35,6 +35,7 @@ const GREETING_MSG = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 export default function HomeTab({
   oshis,
   logs,
+  goods = [],
   selectedOshi,
   selectedOshiId,
   onAddOshi,
@@ -42,13 +43,28 @@ export default function HomeTab({
   onSelectOshi,
   onAddLog,
   onDeleteLog,
-  goods = [],
 }: Props) {
   const goodsList = goods ?? [];
-  const logTotal = logs
+
+  // フィルタ適用（選択中の推しがいれば絞り込む）
+  const filteredLogs = useMemo(() => {
+    if (selectedOshiId) {
+      return logs.filter((l) => l.oshiId === selectedOshiId);
+    }
+    return logs;
+  }, [logs, selectedOshiId]);
+
+  const filteredGoods = useMemo(() => {
+    if (selectedOshiId) {
+      return goodsList.filter((g) => g.oshiId === selectedOshiId);
+    }
+    return goodsList;
+  }, [goodsList, selectedOshiId]);
+
+  const logTotal = filteredLogs
     .filter((l) => l.amount != null && l.amount > 0)
     .reduce((sum, l) => sum + (l.amount ?? 0), 0);
-  const goodsTotal = goodsList
+  const goodsTotal = filteredGoods
     .filter((g) => g.price != null && g.price > 0)
     .reduce((sum, g) => sum + (g.price ?? 0), 0);
   const totalAmount = logTotal + goodsTotal;
@@ -91,7 +107,7 @@ export default function HomeTab({
           </View>
           <View style={styles.summaryDiv} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryVal}>{logs.length}<Text style={styles.summaryUnit}>件</Text></Text>
+            <Text style={styles.summaryVal}>{filteredLogs.length}<Text style={styles.summaryUnit}>件</Text></Text>
             <Text style={styles.summaryLabel}>推し活記録</Text>
           </View>
           <View style={styles.summaryDiv} />
@@ -127,9 +143,10 @@ export default function HomeTab({
         <SectionHeader
           emoji="📖"
           title="推し活ログ"
-          hint={logs.length > 0 ? `${logs.length}件` : undefined}
+          hint={filteredLogs.length > 0 ? `${filteredLogs.length}件` : undefined}
         />
-        <OshiLogList logs={logs} oshis={oshis} onDelete={onDeleteLog} />
+
+        <OshiLogList logs={filteredLogs} oshis={oshis} onDelete={onDeleteLog} />
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>推しログ — 推し活をもっと楽しく 💫</Text>
@@ -227,6 +244,19 @@ const styles = StyleSheet.create({
 
   // ボディ
   body: { paddingHorizontal: 16, paddingTop: 4 },
+
+  // フィルタ
+  filterWrap: { marginBottom: 12 },
+  filterHint: {
+    alignItems: 'center', paddingVertical: 30,
+    backgroundColor: COLORS.cardBg, borderRadius: RADIUS.card,
+    borderWidth: 1.5, borderColor: COLORS.border, borderStyle: 'dashed',
+  },
+  filterHintEmoji: { fontSize: 32, marginBottom: 8 },
+  filterHintText: {
+    fontSize: 13, color: COLORS.textTertiary, textAlign: 'center', lineHeight: 20,
+  },
+
   footer: { alignItems: 'center', paddingVertical: 24 },
   footerText: {
     fontSize: 11, color: COLORS.textTertiary,
