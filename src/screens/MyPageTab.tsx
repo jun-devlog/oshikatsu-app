@@ -1,25 +1,76 @@
-import React from 'react';
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
-import { Oshi, OshiLog } from '../types/oshi';
+import React, { useMemo } from 'react';
+import { ScrollView, View, Text, StyleSheet, Linking, TouchableOpacity } from 'react-native';
+import { Oshi, OshiLog, OshiGoods } from '../types/oshi';
 import { formatAmount } from '../utils/format';
+import { getTodayString } from '../utils/date';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 
 type Props = {
   oshis: Oshi[];
   logs: OshiLog[];
+  goods?: OshiGoods[];
 };
 
-const INFO_ITEMS = [
-  { icon: '🔔', label: '通知設定', desc: '推し活のリマインダーを設定（準備中）' },
-  { icon: '☁️', label: 'データバックアップ', desc: '端末外への保存機能（準備中）' },
-  { icon: '🔑', label: 'ログイン・アカウント', desc: '複数端末での同期機能（準備中）' },
-  { icon: '💬', label: 'ヘルプ・お問い合わせ', desc: 'フィードバックをお待ちしています' },
-];
+export default function MyPageTab({ oshis, logs, goods = [] }: Props) {
+  const oshiCount = oshis.length;
+  const logCount = logs.length;
+  const goodsCount = goods.length;
 
-export default function MyPageTab({ oshis, logs }: Props) {
-  const totalAmount = logs
-    .filter((l) => l.amount != null)
-    .reduce((sum, l) => sum + (l.amount ?? 0), 0);
+  const { totalAmount, thisMonthAmount } = useMemo(() => {
+    const thisMonthPrefix = getTodayString().substring(0, 7);
+    let total = 0;
+    let thisMonth = 0;
+
+    logs.forEach((l) => {
+      if (l.amount && l.amount > 0) {
+        total += l.amount;
+        if (l.date.startsWith(thisMonthPrefix)) {
+          thisMonth += l.amount;
+        }
+      }
+    });
+
+    goods.forEach((g) => {
+      if (g.price && g.price > 0) {
+        total += g.price;
+        if (g.purchaseDate.startsWith(thisMonthPrefix)) {
+          thisMonth += g.price;
+        }
+      }
+    });
+
+    return { totalAmount: total, thisMonthAmount: thisMonth };
+  }, [logs, goods]);
+
+  const topOshiName = useMemo(() => {
+    if (oshis.length === 0) return '推し未登録';
+    const counts: Record<string, number> = {};
+    
+    // ログとグッズの数を推しごとにカウント
+    logs.forEach((l) => {
+      counts[l.oshiId] = (counts[l.oshiId] || 0) + 1;
+    });
+    goods.forEach((g) => {
+      counts[g.oshiId] = (counts[g.oshiId] || 0) + 1;
+    });
+
+    let maxId = '';
+    let maxCount = -1;
+    Object.entries(counts).forEach(([id, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        maxId = id;
+      }
+    });
+
+    // まだ記録がない場合は最初に登録した推しを表示
+    if (maxCount === -1 || !maxId) {
+       return oshis[0]?.name ?? 'データなし';
+    }
+
+    const oshi = oshis.find((o) => o.id === maxId);
+    return oshi ? oshi.name : 'データ不明';
+  }, [oshis, logs, goods]);
 
   return (
     <ScrollView
@@ -27,118 +78,97 @@ export default function MyPageTab({ oshis, logs }: Props) {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* ページヘッダー（LP「マイページ」画面参考） */}
+      {/* ページヘッダー */}
       <View style={styles.pageHeader}>
-        <View style={styles.decoCircle1} />
-        <View style={styles.decoCircle2} />
-
-        {/* アバター */}
-        <View style={styles.avatarWrap}>
-          <Text style={styles.avatarEmoji}>💕</Text>
-        </View>
-        <Text style={styles.appName}>推しログ</Text>
-        <Text style={styles.appNameEn}>Oshi Katsu Diary</Text>
+        <View style={styles.pageHeaderDeco} />
+        <Text style={styles.pageTitle}>👤 マイページ</Text>
+        <Text style={styles.pageSub}>推し活の各種データやアプリ情報を確認できます</Text>
       </View>
 
       <View style={styles.body}>
-        {/* 統計カード */}
+        {/* ── 1. 推し活サマリー ── */}
+        <Text style={styles.sectionTitle}>📊 あなたの推し活データ</Text>
         <View style={styles.statsCard}>
-          <View style={styles.statItem}>
-            <Text style={styles.statVal}>{oshis.length}</Text>
-            <Text style={styles.statUnit}>人</Text>
-            <Text style={styles.statLabel}>登録推し</Text>
-          </View>
-          <View style={styles.statDiv} />
-          <View style={styles.statItem}>
-            <Text style={styles.statVal}>{logs.length}</Text>
-            <Text style={styles.statUnit}>件</Text>
-            <Text style={styles.statLabel}>ログ記録</Text>
-          </View>
-          <View style={styles.statDiv} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statVal, styles.statValAmount]}>
-              ¥{totalAmount.toLocaleString('ja-JP')}
-            </Text>
-            <Text style={styles.statLabel}>累計支出</Text>
-          </View>
-        </View>
-
-        {/* 登録推し一覧 */}
-        {oshis.length > 0 && (
-          <View style={styles.oshisCard}>
-            <Text style={styles.cardTitle}>💕 登録中の推し</Text>
-            {oshis.map((oshi, idx) => (
-              <View
-                key={oshi.id}
-                style={[
-                  styles.oshiRow,
-                  idx < oshis.length - 1 && styles.oshiRowBorder,
-                ]}
-              >
-                <View style={styles.oshiAvatarMini}>
-                  <Text style={styles.oshiAvatarMiniText}>💫</Text>
-                </View>
-                <View style={styles.oshiInfo}>
-                  <Text style={styles.oshiName}>{oshi.name}</Text>
-                  {oshi.genre ? (
-                    <Text style={styles.oshiGenre}>{oshi.genre}</Text>
-                  ) : null}
-                </View>
-                <Text style={styles.oshiLogCount}>
-                  {logs.filter((l) => l.oshiId === oshi.id).length}件
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* データ保存について */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoCardHeader}>
-            <Text style={styles.infoCardIcon}>📱</Text>
-            <Text style={styles.infoCardTitle}>データの保存について</Text>
-          </View>
-          <Text style={styles.infoCardDesc}>
-            すべてのデータはこの端末（AsyncStorage）に保存されています。アンインストールするとデータが消えるためご注意ください。
-          </Text>
-        </View>
-
-        {/* 今後の機能 */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoCardHeader}>
-            <Text style={styles.infoCardIcon}>🚀</Text>
-            <Text style={styles.infoCardTitle}>今後追加予定の機能</Text>
-          </View>
-          <Text style={styles.infoCardDesc}>
-            今後、バックアップ・ログイン機能・グッズ管理などの機能を追加予定です。引き続きご利用をお楽しみに！
-          </Text>
-        </View>
-
-        {/* メニューリスト */}
-        <View style={styles.menuCard}>
-          {INFO_ITEMS.map((item, idx) => (
-            <View
-              key={item.label}
-              style={[
-                styles.menuRow,
-                idx < INFO_ITEMS.length - 1 && styles.menuRowBorder,
-              ]}
-            >
-              <Text style={styles.menuIcon}>{item.icon}</Text>
-              <View style={styles.menuText}>
-                <Text style={styles.menuLabel}>{item.label}</Text>
-                <Text style={styles.menuDesc}>{item.desc}</Text>
-              </View>
-              <Text style={styles.menuArrow}>›</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>登録推し数</Text>
+              <Text style={styles.statValue}>{oshiCount}<Text style={styles.statUnit}>人</Text></Text>
             </View>
-          ))}
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>ログ数</Text>
+              <Text style={styles.statValue}>{logCount}<Text style={styles.statUnit}>件</Text></Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>グッズ数</Text>
+              <Text style={styles.statValue}>{goodsCount}<Text style={styles.statUnit}>個</Text></Text>
+            </View>
+          </View>
+
+          <View style={styles.statsDividerHorizontal} />
+
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>今月の支出</Text>
+              <Text style={styles.statValueMoney}>{formatAmount(thisMonthAmount)}</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>合計支出</Text>
+              <Text style={styles.statValueMoney}>{formatAmount(totalAmount)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.statsDividerHorizontal} />
+
+          <View style={styles.topOshiWrap}>
+            <Text style={styles.topOshiLabel}>🏆 一番記録している推し</Text>
+            <Text style={styles.topOshiName}>{topOshiName}</Text>
+          </View>
         </View>
 
-        {/* バージョン情報 */}
-        <View style={styles.versionArea}>
-          <Text style={styles.versionText}>推しログ v1.0.0（MVP）</Text>
-          <Text style={styles.versionSubText}>Expo + React Native + TypeScript</Text>
+        {/* ── 2. データ保存についての説明 ── */}
+        <Text style={styles.sectionTitle}>💾 データ保存について</Text>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoText}>
+            このアプリのデータ（推しの情報、カレンダーの記録、グッズ情報、画像など）は、<Text style={styles.highlight}>すべてお使いのスマートフォン端末内にのみ保存</Text>されます。
+          </Text>
+          <Text style={styles.infoText}>
+            外部のサーバーには送信されないため、安心してご利用いただけます。
+          </Text>
+          <Text style={styles.infoAlert}>
+            ※ アプリを削除（アンインストール）すると、記録したデータもすべて消去されますのでご注意ください。機種変更時の引き継ぎ機能は現在準備中です。
+          </Text>
         </View>
+
+        {/* ── 3. アプリ情報 ── */}
+        <Text style={styles.sectionTitle}>📱 アプリ情報</Text>
+        <View style={styles.appCard}>
+          <View style={styles.appRow}>
+            <Text style={styles.appLabel}>アプリ名</Text>
+            <Text style={styles.appValue}>推しログ / Oshikatsu</Text>
+          </View>
+          <View style={styles.appDivider} />
+          <View style={styles.appRow}>
+            <Text style={styles.appLabel}>バージョン</Text>
+            <Text style={styles.appValue}>1.0.0</Text>
+          </View>
+          <View style={styles.appDivider} />
+          <View style={styles.appRow}>
+            <Text style={styles.appLabel}>開発</Text>
+            <Text style={styles.appValue}>推し活応援プロジェクト</Text>
+          </View>
+        </View>
+
+        {/* サポートボタンなど（プレースホルダー） */}
+        <TouchableOpacity
+          style={styles.supportButton}
+          onPress={() => Linking.openURL('https://oshikatsu-navy.vercel.app/')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.supportButtonText}>🌐 公式サイトを見る</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -146,143 +176,176 @@ export default function MyPageTab({ oshis, logs }: Props) {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { paddingBottom: 32 },
+  content: { paddingBottom: 40 },
 
-  // ページヘッダー（LP マイページ画面風：グラデーション背景）
+  // ページヘッダー
   pageHeader: {
     backgroundColor: COLORS.headerBg,
-    paddingTop: 32, paddingBottom: 28,
+    paddingTop: 24, paddingBottom: 20,
     paddingHorizontal: 20,
-    alignItems: 'center',
-    borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
-    overflow: 'hidden', marginBottom: 8,
-    ...SHADOW.cardStrong,
-    borderBottomWidth: 3, borderBottomColor: COLORS.primaryLight,
-  },
-  decoCircle1: {
-    position: 'absolute', top: -40, right: -40,
-    width: 180, height: 180, borderRadius: 90,
-    backgroundColor: COLORS.primaryBg, opacity: 0.9,
-  },
-  decoCircle2: {
-    position: 'absolute', bottom: -40, left: -40,
-    width: 150, height: 150, borderRadius: 75,
-    backgroundColor: COLORS.accentBg, opacity: 0.8,
-  },
-  avatarWrap: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: COLORS.primaryBg,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: COLORS.primaryLight,
-    marginBottom: 12, ...SHADOW.card,
-  },
-  avatarEmoji: { fontSize: 36 },
-  appName: {
-    fontSize: 22, fontWeight: '800',
-    color: COLORS.accentDark, letterSpacing: 0.5, marginBottom: 2,
-  },
-  appNameEn: {
-    fontSize: 11, color: COLORS.textTertiary,
-    letterSpacing: 1.2,
-  },
-
-  body: { paddingHorizontal: 16, paddingTop: 4 },
-
-  // 統計カード
-  statsCard: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.cardBg,
-    borderRadius: RADIUS.card,
-    paddingVertical: 18, paddingHorizontal: 14,
-    marginBottom: 14, ...SHADOW.card,
-    borderTopWidth: 3, borderTopColor: COLORS.primary,
-  },
-  statItem: { flex: 1, alignItems: 'center' },
-  statVal: {
-    fontSize: 22, fontWeight: '800',
-    color: COLORS.accentDark, letterSpacing: -0.5,
-  },
-  statValAmount: { fontSize: 16, color: COLORS.primaryDark },
-  statUnit: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
-  statLabel: {
-    fontSize: 11, color: COLORS.textTertiary,
-    fontWeight: '500', marginTop: 3,
-  },
-  statDiv: {
-    width: 1, backgroundColor: COLORS.border, alignSelf: 'center', height: 36,
-  },
-
-  // 推し一覧カード
-  oshisCard: {
-    backgroundColor: COLORS.cardBg,
-    borderRadius: RADIUS.card,
-    padding: 16, marginBottom: 14,
+    borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
+    overflow: 'hidden', marginBottom: 20,
     ...SHADOW.card,
   },
-  cardTitle: {
-    fontSize: 15, fontWeight: '700',
-    color: COLORS.accentDark, marginBottom: 12,
+  pageHeaderDeco: {
+    position: 'absolute', top: -30, right: -30,
+    width: 120, height: 120, borderRadius: 60,
+    backgroundColor: COLORS.primaryBg, opacity: 0.7,
   },
-  oshiRow: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 10, paddingVertical: 10,
+  pageTitle: {
+    fontSize: 20, fontWeight: '800',
+    color: COLORS.accentDark, letterSpacing: 0.3, marginBottom: 6,
   },
-  oshiRowBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.divider },
-  oshiAvatarMini: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: COLORS.primaryBg,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  oshiAvatarMiniText: { fontSize: 18 },
-  oshiInfo: { flex: 1 },
-  oshiName: { fontSize: 14, fontWeight: '700', color: COLORS.text },
-  oshiGenre: { fontSize: 12, color: COLORS.textTertiary, marginTop: 1 },
-  oshiLogCount: {
-    fontSize: 12, fontWeight: '600', color: COLORS.primary,
+  pageSub: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 18 },
+
+  body: { paddingHorizontal: 16 },
+
+  sectionTitle: {
+    fontSize: 16, fontWeight: '800', color: COLORS.accentDark,
+    marginBottom: 10, marginLeft: 4, marginTop: 8,
   },
 
-  // 情報カード
+  // ── 統計カード ──
+  statsCard: {
+    backgroundColor: COLORS.cardBg,
+    borderRadius: RADIUS.card,
+    padding: 16,
+    marginBottom: 24,
+    ...SHADOW.card,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: COLORS.textTertiary,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.accentDark,
+  },
+  statValueMoney: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#D94949',
+  },
+  statUnit: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginLeft: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: '70%',
+    backgroundColor: COLORS.divider,
+  },
+  statsDividerHorizontal: {
+    height: 1,
+    backgroundColor: COLORS.divider,
+    marginVertical: 12,
+  },
+  topOshiWrap: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    backgroundColor: COLORS.primaryBg,
+    borderRadius: RADIUS.cardSm,
+  },
+  topOshiLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginBottom: 4,
+  },
+  topOshiName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.primaryDark,
+  },
+
+  // ── 情報カード ──
   infoCard: {
     backgroundColor: COLORS.cardBg,
     borderRadius: RADIUS.card,
-    padding: 16, marginBottom: 10,
+    padding: 16,
+    marginBottom: 24,
     ...SHADOW.card,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
-  infoCardHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 8, marginBottom: 8,
+  infoText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 22,
+    marginBottom: 8,
   },
-  infoCardIcon: { fontSize: 18 },
-  infoCardTitle: {
-    fontSize: 14, fontWeight: '700', color: COLORS.accentDark,
+  highlight: {
+    fontWeight: '700',
+    color: COLORS.accentDark,
   },
-  infoCardDesc: {
-    fontSize: 13, color: COLORS.textSecondary,
-    lineHeight: 20,
+  infoAlert: {
+    fontSize: 12,
+    color: '#D94949',
+    lineHeight: 18,
+    marginTop: 8,
+    backgroundColor: '#FFF0F5',
+    padding: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
 
-  // メニューリスト
-  menuCard: {
+  // ── アプリ情報カード ──
+  appCard: {
     backgroundColor: COLORS.cardBg,
     borderRadius: RADIUS.card,
-    paddingHorizontal: 16, marginTop: 4, marginBottom: 14,
+    paddingHorizontal: 16,
+    marginBottom: 24,
     ...SHADOW.card,
   },
-  menuRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 14, gap: 12,
+  appRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
   },
-  menuRowBorder: {
-    borderBottomWidth: 1, borderBottomColor: COLORS.divider,
+  appDivider: {
+    height: 1,
+    backgroundColor: COLORS.divider,
   },
-  menuIcon: { fontSize: 20 },
-  menuText: { flex: 1 },
-  menuLabel: { fontSize: 14, fontWeight: '600', color: COLORS.text },
-  menuDesc: { fontSize: 11, color: COLORS.textTertiary, marginTop: 2 },
-  menuArrow: { fontSize: 20, color: COLORS.textTertiary },
+  appLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  appValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
 
-  // バージョン情報
-  versionArea: { alignItems: 'center', paddingVertical: 20 },
-  versionText: { fontSize: 12, color: COLORS.textTertiary },
-  versionSubText: { fontSize: 11, color: COLORS.placeholder, marginTop: 2 },
+  // サポートボタン
+  supportButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    borderRadius: RADIUS.button,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  supportButtonText: {
+    color: COLORS.primary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
 });

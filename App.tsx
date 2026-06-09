@@ -94,7 +94,7 @@ export default function App() {
       case 'budget':
         return <BudgetTab logs={logs} oshis={oshis} goods={goods} />;
       case 'mypage':
-        return <MyPageTab oshis={oshis} logs={logs} />;
+        return <MyPageTab oshis={oshis} logs={logs} goods={goods} />;
     }
   };
 
