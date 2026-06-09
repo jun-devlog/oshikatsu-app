@@ -1,7 +1,8 @@
-import React from 'react';
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Oshi, OshiLog } from '../types/oshi';
-import { formatDateShort, formatAmount } from '../utils/format';
+import { formatAmount } from '../utils/format';
+import { getTodayString, parseDateString, toDateString, generateCalendarWeeks } from '../utils/date';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 
 type Props = {
@@ -9,53 +10,75 @@ type Props = {
   oshis: Oshi[];
 };
 
-type DateGroup = {
-  date: string;
-  logs: OshiLog[];
-};
+const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 
-// カテゴリ左ボーダーカラー
-const BORDER_COLORS: Record<string, string> = {
-  配信: '#4A8FD9',
-  ライブ: '#E991A8',
-  グッズ: '#D98C49',
-  イベント: '#9B8EC4',
-  聖地巡礼: '#49D98C',
-  感想: '#C9A200',
-  支出: '#D94949',
-  その他: '#AFA0C8',
+// イベント用カラーマッピング (LP画像のピンク・紫・ミント系を参考)
+const EVENT_COLORS: Record<string, string> = {
+  配信: '#9B8EC4', // 紫
+  ライブ: '#E991A8', // ピンク
+  グッズ: '#91E9C5', // ミント
+  イベント: '#E9A891', // オレンジ系ピンク
+  聖地巡礼: '#91BCE9', // 水色
+  感想: '#E9D691', // 黄色
+  支出: '#D94949', // 赤
+  その他: '#AFA0C8', // 薄紫
 };
-
-const CAT_ICONS: Record<string, string> = {
-  配信: '📺', ライブ: '🎤', グッズ: '🛍️',
-  イベント: '🎪', 聖地巡礼: '🗺️', 感想: '💭',
-  支出: '💸', その他: '📌',
-};
-
-function groupByDate(logs: OshiLog[]): DateGroup[] {
-  // 日付の降順でソート
-  const sorted = [...logs].sort((a, b) => {
-    if (b.date < a.date) return -1;
-    if (b.date > a.date) return 1;
-    return 0;
-  });
-  const groups: DateGroup[] = [];
-  for (const log of sorted) {
-    const last = groups[groups.length - 1];
-    if (last && last.date === log.date) {
-      last.logs.push(log);
-    } else {
-      groups.push({ date: log.date, logs: [log] });
-    }
-  }
-  return groups;
-}
 
 export default function CalendarTab({ logs, oshis }: Props) {
+  const todayStr = getTodayString();
+  const todayDate = parseDateString(todayStr)!;
+
+  const [viewYear, setViewYear] = useState(todayDate.getFullYear());
+  const [viewMonth, setViewMonth] = useState(todayDate.getMonth());
+  
+  // 選択中の日付
+  const [selectedStr, setSelectedStr] = useState(todayStr);
+
   const getOshiName = (oshiId: string) =>
     oshis.find((o) => o.id === oshiId)?.name ?? '不明';
 
-  const groups = groupByDate(logs);
+  // 前月へ
+  const goPrevMonth = () => {
+    if (viewMonth === 0) {
+      setViewYear((y) => y - 1);
+      setViewMonth(11);
+    } else {
+      setViewMonth((m) => m - 1);
+    }
+  };
+
+  // 次月へ
+  const goNextMonth = () => {
+    if (viewMonth === 11) {
+      setViewYear((y) => y + 1);
+      setViewMonth(0);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  };
+
+  // 日付タップ
+  const handleDayPress = (day: number) => {
+    setSelectedStr(toDateString(new Date(viewYear, viewMonth, day)));
+  };
+
+  // カレンダーのグリッド生成
+  const weeks = useMemo(() => generateCalendarWeeks(viewYear, viewMonth), [viewYear, viewMonth]);
+
+  // 選択中の日付のログ
+  const selectedLogs = useMemo(() => {
+    return logs.filter(log => log.date === selectedStr);
+  }, [logs, selectedStr]);
+
+  // 特定の日の色（最初のイベントの色を返す）
+  const getDayColor = (day: number) => {
+    const dStr = toDateString(new Date(viewYear, viewMonth, day));
+    const dayLogs = logs.filter(log => log.date === dStr);
+    if (dayLogs.length > 0) {
+      return EVENT_COLORS[dayLogs[0].category] ?? EVENT_COLORS['その他'];
+    }
+    return null;
+  };
 
   return (
     <ScrollView
@@ -63,94 +86,120 @@ export default function CalendarTab({ logs, oshis }: Props) {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* ページヘッダー */}
-      <View style={styles.pageHeader}>
-        <View style={styles.pageHeaderDeco} />
-        <Text style={styles.pageTitle}>📅 イベントカレンダー</Text>
-        <Text style={styles.pageSub}>推し活の記録を日付順で確認できます</Text>
-      </View>
+      {/* ── カレンダーエリア ── */}
+      <View style={styles.calendarContainer}>
+        {/* タイトル */}
+        <View style={styles.headerRow}>
+          <Text style={styles.headerIcon}>📅</Text>
+          <Text style={styles.headerTitle}>イベントカレンダー</Text>
+        </View>
 
-      <View style={styles.body}>
-        {groups.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>📅</Text>
-            <Text style={styles.emptyTitle}>ログがまだありません</Text>
-            <Text style={styles.emptyDesc}>
-              ホームタブからログを記録すると{'\n'}ここに表示されます
-            </Text>
+        {/* 月ナビゲーション */}
+        <View style={styles.monthNavRow}>
+          <Text style={styles.monthLabel}>
+            {viewYear}年{viewMonth + 1}月
+          </Text>
+          <View style={styles.navArrows}>
+            <TouchableOpacity onPress={goPrevMonth} style={styles.navBtn} hitSlop={{top:10,bottom:10,left:10,right:10}}>
+              <Text style={styles.navArrowText}>◀</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={goNextMonth} style={styles.navBtn} hitSlop={{top:10,bottom:10,left:10,right:10}}>
+              <Text style={styles.navArrowText}>▶</Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          groups.map((group) => (
-            <View key={group.date} style={styles.group}>
-              {/* 日付ヘッダー */}
-              <View style={styles.dateHeader}>
-                <View style={styles.dateDot} />
-                <Text style={styles.dateText}>{formatDateShort(group.date)}</Text>
-                <View style={styles.dateLine} />
-              </View>
+        </View>
 
-              {/* イベント一覧 */}
-              {group.logs.map((log) => {
-                const borderColor =
-                  BORDER_COLORS[log.category] ?? BORDER_COLORS['その他'];
-                const catColor =
-                  COLORS.cat[log.category] ?? COLORS.cat['その他'];
+        {/* 曜日ヘッダー */}
+        <View style={styles.dowRow}>
+          {DOW_LABELS.map((label, i) => (
+            <Text key={label} style={[styles.dowLabel, i === 0 && styles.dowSun, i === 6 && styles.dowSat]}>
+              {label}
+            </Text>
+          ))}
+        </View>
+
+        {/* カレンダーグリッド */}
+        <View style={styles.grid}>
+          {weeks.map((week, wi) => (
+            <View key={wi} style={styles.weekRow}>
+              {week.map((day, di) => {
+                if (day === null) {
+                  return <View key={`e-${di}`} style={styles.dayCell} />;
+                }
+
+                const cellStr = toDateString(new Date(viewYear, viewMonth, day));
+                const isSelected = cellStr === selectedStr;
+                const isSun = di === 0;
+                const isSat = di === 6;
+                const dayColor = getDayColor(day);
+
                 return (
-                  <View
-                    key={log.id}
-                    style={[styles.eventCard, { borderLeftColor: borderColor }]}
+                  <TouchableOpacity
+                    key={day}
+                    style={styles.dayCell}
+                    onPress={() => handleDayPress(day)}
+                    activeOpacity={0.7}
                   >
-                    {/* カテゴリバッジ */}
-                    <View style={styles.eventTop}>
-                      <View
+                    <View
+                      style={[
+                        styles.dayInner,
+                        dayColor && { backgroundColor: dayColor }, // イベントあり
+                        isSelected && !dayColor && { backgroundColor: COLORS.primaryLight }, // 選択中（イベントなし）
+                        isSelected && { borderWidth: 2, borderColor: COLORS.primaryDark }, // 選択中は枠線で強調
+                      ]}
+                    >
+                      <Text
                         style={[
-                          styles.catBadge,
-                          {
-                            backgroundColor: catColor.bg,
-                            borderColor: catColor.border,
-                          },
+                          styles.dayText,
+                          isSun && !dayColor && styles.dayTextSun,
+                          isSat && !dayColor && styles.dayTextSat,
+                          dayColor && { color: '#fff', fontWeight: '700' }, // 背景色がある場合は白文字
+                          isSelected && !dayColor && { color: COLORS.primaryDark, fontWeight: '700' },
                         ]}
                       >
-                        <Text style={styles.catIcon}>
-                          {CAT_ICONS[log.category] ?? '📌'}
-                        </Text>
-                        <Text style={[styles.catText, { color: catColor.text }]}>
-                          {log.category}
-                        </Text>
-                      </View>
-                      {log.amount != null && (
-                        <Text style={styles.amount}>
-                          -{formatAmount(log.amount)}
-                        </Text>
-                      )}
-                    </View>
-
-                    {/* タイトル */}
-                    <Text style={styles.eventTitle}>{log.title}</Text>
-
-                    {/* 推し名 */}
-                    <Text style={styles.oshiName}>
-                      💕 {getOshiName(log.oshiId)}
-                    </Text>
-
-                    {/* メモ */}
-                    {log.memo ? (
-                      <Text style={styles.memo} numberOfLines={2}>
-                        {log.memo}
+                        {day}
                       </Text>
-                    ) : null}
-                  </View>
+                    </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
-          ))
-        )}
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            ログはホームタブから記録できます 📝
-          </Text>
+          ))}
         </View>
+      </View>
+
+      {/* ── イベント一覧エリア ── */}
+      <View style={styles.listContainer}>
+        <Text style={styles.listTitle}>イベント一覧</Text>
+
+        {selectedLogs.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>この日に登録されたイベントはありません</Text>
+          </View>
+        ) : (
+          selectedLogs.map((log) => {
+            const barColor = EVENT_COLORS[log.category] ?? EVENT_COLORS['その他'];
+            const dateObj = parseDateString(log.date);
+            const displayDate = dateObj ? `${dateObj.getMonth() + 1}/${dateObj.getDate()}` : log.date;
+
+            return (
+              <View key={log.id} style={styles.eventCard}>
+                <View style={[styles.eventBar, { backgroundColor: barColor }]} />
+                <View style={styles.eventContent}>
+                  <Text style={styles.eventTitle}>
+                    {displayDate} {log.title}
+                  </Text>
+                  <View style={styles.eventSubInfo}>
+                    <Text style={styles.eventOshi}>💕 {getOshiName(log.oshiId)}</Text>
+                    {log.amount != null && (
+                      <Text style={styles.eventAmount}>-{formatAmount(log.amount)}</Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+            );
+          })
+        )}
       </View>
     </ScrollView>
   );
@@ -158,104 +207,169 @@ export default function CalendarTab({ logs, oshis }: Props) {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { paddingBottom: 32 },
+  content: { paddingBottom: 40 },
 
-  // ページヘッダー
-  pageHeader: {
-    backgroundColor: COLORS.headerBg,
+  // カレンダーエリア
+  calendarContainer: {
     paddingTop: 24,
-    paddingBottom: 20,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    overflow: 'hidden',
-    marginBottom: 8,
+    backgroundColor: COLORS.headerBg,
+    paddingBottom: 28,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
     ...SHADOW.card,
+    marginBottom: 24,
   },
-  pageHeaderDeco: {
-    position: 'absolute', top: -30, right: -30,
-    width: 120, height: 120, borderRadius: 60,
-    backgroundColor: COLORS.accentBg, opacity: 0.7,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  pageTitle: {
-    fontSize: 20, fontWeight: '800',
-    color: COLORS.accentDark, letterSpacing: 0.3, marginBottom: 6,
+  headerIcon: {
+    fontSize: 18,
+    marginRight: 6,
   },
-  pageSub: {
-    fontSize: 13, color: COLORS.textSecondary, lineHeight: 18,
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.accentDark,
+    letterSpacing: 0.3,
+  },
+  monthNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingHorizontal: 4,
+  },
+  monthLabel: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.accentDark,
+    letterSpacing: 0.5,
+  },
+  navArrows: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
+  navBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  navArrowText: {
+    fontSize: 14,
+    color: COLORS.accentDark,
+    fontWeight: '800',
   },
 
-  body: { paddingHorizontal: 16, paddingTop: 4 },
+  // カレンダーグリッド
+  dowRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  dowLabel: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+  },
+  dowSun: { color: '#D94949' },
+  dowSat: { color: '#4A8FD9' },
 
-  // 日付グループ
-  group: { marginBottom: 20 },
+  grid: {
+    gap: 8,
+  },
+  weekRow: {
+    flexDirection: 'row',
+  },
+  dayCell: {
+    flex: 1,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayInner: {
+    width: 34,
+    height: 34,
+    borderRadius: 8, // 角丸で参考画像風に
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  dayTextSun: { color: '#D94949' },
+  dayTextSat: { color: '#4A8FD9' },
 
-  dateHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 8, marginBottom: 10,
+  // イベント一覧エリア
+  listContainer: {
+    paddingHorizontal: 20,
   },
-  dateDot: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: COLORS.primary,
+  listTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.accentDark,
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
-  dateText: {
-    fontSize: 14, fontWeight: '700',
-    color: COLORS.accentDark, letterSpacing: 0.3,
-  },
-  dateLine: {
-    flex: 1, height: 1, backgroundColor: COLORS.border,
-  },
-
-  // イベントカード（LP「イベント一覧」スタイル）
-  eventCard: {
+  emptyCard: {
     backgroundColor: COLORS.cardBg,
     borderRadius: RADIUS.cardSm,
-    padding: 14,
-    marginBottom: 8,
-    borderLeftWidth: 4,
+    padding: 18,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+
+  // イベントカード
+  eventCard: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.cardBg,
+    borderRadius: RADIUS.cardSm,
+    marginBottom: 10,
+    minHeight: 64,
     ...SHADOW.card,
+    overflow: 'hidden', // 縦バーをきれいにおさめるため
   },
-  eventTop: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 6,
+  eventBar: {
+    width: 6,
+    height: '100%',
   },
-  catBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 9, paddingVertical: 3,
-    borderRadius: RADIUS.chip, borderWidth: 1,
-  },
-  catIcon: { fontSize: 11 },
-  catText: { fontSize: 11, fontWeight: '700' },
-  amount: {
-    fontSize: 14, fontWeight: '700', color: '#D94949',
+  eventContent: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
   },
   eventTitle: {
-    fontSize: 15, fontWeight: '700',
-    color: COLORS.text, marginBottom: 4,
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+    letterSpacing: 0.2,
   },
-  oshiName: {
-    fontSize: 12, fontWeight: '600',
-    color: COLORS.primary, marginBottom: 2,
+  eventSubInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 10,
   },
-  memo: {
-    fontSize: 12, color: COLORS.textSecondary,
-    lineHeight: 18, marginTop: 2,
+  eventOshi: {
+    fontSize: 11,
+    color: COLORS.primaryDark,
+    fontWeight: '600',
   },
-
-  // 空状態
-  empty: {
-    alignItems: 'center', paddingVertical: 60,
+  eventAmount: {
+    fontSize: 12,
+    color: '#D94949',
+    fontWeight: '700',
   },
-  emptyEmoji: { fontSize: 48, marginBottom: 14 },
-  emptyTitle: {
-    fontSize: 16, fontWeight: '700',
-    color: COLORS.accentDark, marginBottom: 8,
-  },
-  emptyDesc: {
-    fontSize: 13, color: COLORS.textTertiary,
-    textAlign: 'center', lineHeight: 20,
-  },
-
-  footer: { alignItems: 'center', paddingTop: 16, paddingBottom: 8 },
-  footerText: { fontSize: 12, color: COLORS.textTertiary },
 });
