@@ -1,30 +1,118 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, View, Text, StyleSheet } from 'react-native';
-import { OshiLog, Oshi } from '../types/oshi';
+import { OshiLog, Oshi, OshiGoods } from '../types/oshi';
 import { formatAmount, formatDateShort } from '../utils/format';
+import { getTodayString } from '../utils/date';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 
 type Props = {
   logs: OshiLog[];
   oshis: Oshi[];
+  goods?: OshiGoods[];
 };
 
 const CAT_ICONS: Record<string, string> = {
+  // ログカテゴリ
   配信: '📺', ライブ: '🎤', グッズ: '🛍️',
   イベント: '🎪', 聖地巡礼: '🗺️', 感想: '💭',
   支出: '💸', その他: '📌',
+  // グッズカテゴリ
+  アクスタ: '🧍', 缶バッジ: '📛', ぬい: '🧸',
+  写真: '📸', 'CD/DVD': '💿', 本: '📚',
+  衣類: '👕',
 };
 
-export default function BudgetTab({ logs, oshis }: Props) {
-  const logsWithAmount = logs.filter((l) => l.amount != null && l.amount > 0);
-  const totalAmount = logsWithAmount.reduce((sum, l) => sum + (l.amount ?? 0), 0);
+type ExpenseItem = {
+  id: string;
+  type: 'log' | 'goods';
+  date: string;
+  title: string;
+  category: string;
+  oshiId: string;
+  amount: number;
+  createdAt: string;
+};
 
-  // カテゴリ別合計
-  const breakdown = logsWithAmount.reduce<Record<string, number>>((acc, l) => {
-    acc[l.category] = (acc[l.category] ?? 0) + (l.amount ?? 0);
-    return acc;
-  }, {});
+export default function BudgetTab({ logs, oshis, goods = [] }: Props) {
+  // 1. 支出データを統合
+  const expenses = useMemo(() => {
+    const items: ExpenseItem[] = [];
+
+    // ログ由来の支出
+    logs.forEach((log) => {
+      if (log.amount != null && log.amount > 0) {
+        items.push({
+          id: `log_${log.id}`,
+          type: 'log',
+          date: log.date,
+          title: log.title,
+          category: log.category,
+          oshiId: log.oshiId,
+          amount: log.amount,
+          createdAt: log.createdAt,
+        });
+      }
+    });
+
+    // グッズ由来の支出
+    goods.forEach((g) => {
+      if (g.price != null && g.price > 0) {
+        items.push({
+          id: `goods_${g.id}`,
+          type: 'goods',
+          date: g.purchaseDate,
+          title: g.name,
+          category: g.category,
+          oshiId: g.oshiId,
+          amount: g.price,
+          createdAt: g.createdAt,
+        });
+      }
+    });
+
+    return items;
+  }, [logs, goods]);
+
+  // 2. 集計
+  const thisMonthPrefix = getTodayString().substring(0, 7); // YYYY-MM
+  
+  let totalAmount = 0;
+  let thisMonthAmount = 0;
+  let logTotal = 0;
+  let goodsTotal = 0;
+  const breakdown: Record<string, number> = {};
+
+  expenses.forEach((item) => {
+    totalAmount += item.amount;
+    
+    if (item.date.startsWith(thisMonthPrefix)) {
+      thisMonthAmount += item.amount;
+    }
+
+    if (item.type === 'log') {
+      logTotal += item.amount;
+    } else {
+      goodsTotal += item.amount;
+    }
+
+    breakdown[item.category] = (breakdown[item.category] ?? 0) + item.amount;
+  });
+
   const breakdownEntries = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
+
+  // 3. リスト表示用（新しい順、最大10件）
+  const recentExpenses = useMemo(() => {
+    return [...expenses]
+      .sort((a, b) => {
+        if (a.date < b.date) return 1;
+        if (a.date > b.date) return -1;
+        // 日付が同じなら登録順
+        if (a.createdAt < b.createdAt) return 1;
+        if (a.createdAt > b.createdAt) return -1;
+        return 0;
+      })
+      .slice(0, 10);
+  }, [expenses]);
 
   const getOshiName = (oshiId: string) =>
     oshis.find((o) => o.id === oshiId)?.name ?? '不明';
@@ -43,26 +131,46 @@ export default function BudgetTab({ logs, oshis }: Props) {
       </View>
 
       <View style={styles.body}>
-        {/* 合計支出カード（LP「収支管理」画面参考） */}
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>合計支出</Text>
-          <Text style={styles.totalAmount}>{formatAmount(totalAmount)}</Text>
-          <View style={styles.totalRow}>
-            <View style={styles.totalSub}>
-              <Text style={styles.totalSubLabel}>記録件数</Text>
-              <Text style={styles.totalSubVal}>{logsWithAmount.length}件</Text>
+        {/* ── 1. サマリーカード ── */}
+        <View style={styles.summaryGrid}>
+          {/* 今月の支出 */}
+          <View style={[styles.summaryCard, styles.summaryCardMain]}>
+            <Text style={styles.summaryLabelMain}>今月の支出</Text>
+            <Text style={styles.summaryAmountMain}>{formatAmount(thisMonthAmount)}</Text>
+          </View>
+          
+          {/* 全期間の支出 */}
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>全期間の支出</Text>
+            <Text style={styles.summaryAmount}>{formatAmount(totalAmount)}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            {/* ログ支出 */}
+            <View style={[styles.summaryCard, styles.summaryCardHalf]}>
+              <Text style={styles.summaryLabel}>推し活ログ</Text>
+              <Text style={styles.summaryAmountSmall}>{formatAmount(logTotal)}</Text>
             </View>
-            <View style={styles.totalSubDivider} />
-            <View style={styles.totalSub}>
-              <Text style={styles.totalSubLabel}>記録カテゴリ</Text>
-              <Text style={styles.totalSubVal}>{breakdownEntries.length}種</Text>
+            
+            {/* グッズ支出 */}
+            <View style={[styles.summaryCard, styles.summaryCardHalf]}>
+              <Text style={styles.summaryLabel}>グッズ</Text>
+              <Text style={styles.summaryAmountSmall}>{formatAmount(goodsTotal)}</Text>
             </View>
           </View>
         </View>
 
-        {/* カテゴリ別内訳 */}
-        {breakdownEntries.length > 0 && (
+        {expenses.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyEmoji}>💸</Text>
+            <Text style={styles.emptyTitle}>まだ支出記録がありません</Text>
+            <Text style={styles.emptyDesc}>
+              推し活ログやグッズを登録すると、{'\n'}ここに集計されます。
+            </Text>
+          </View>
+        ) : (
           <>
+            {/* ── 2. カテゴリ別支出 ── */}
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionEmoji}>📊</Text>
               <Text style={styles.sectionTitle}>カテゴリ別</Text>
@@ -80,76 +188,56 @@ export default function BudgetTab({ logs, oshis }: Props) {
                     ]}
                   >
                     <View style={styles.breakdownLeft}>
-                      <View
-                        style={[
-                          styles.breakdownDot,
-                          { backgroundColor: catStyle.text },
-                        ]}
-                      />
+                      <View style={[styles.breakdownDot, { backgroundColor: catStyle.text || COLORS.primary }]} />
                       <Text style={styles.breakdownIcon}>{CAT_ICONS[cat] ?? '📌'}</Text>
                       <Text style={styles.breakdownCat}>{cat}</Text>
                     </View>
                     <View style={styles.breakdownRight}>
-                      <Text style={styles.breakdownRatio}>
-                        {Math.round(ratio * 100)}%
-                      </Text>
-                      <Text style={styles.breakdownAmount}>
-                        -{formatAmount(amount)}
-                      </Text>
+                      <Text style={styles.breakdownRatio}>{Math.round(ratio * 100)}%</Text>
+                      <Text style={styles.breakdownAmount}>{formatAmount(amount)}</Text>
                     </View>
                   </View>
                 );
               })}
             </View>
-          </>
-        )}
 
-        {/* 支出ログ一覧 */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionEmoji}>📋</Text>
-          <Text style={styles.sectionTitle}>支出一覧</Text>
-          {logsWithAmount.length > 0 && (
-            <Text style={styles.sectionHint}>{logsWithAmount.length}件</Text>
-          )}
-        </View>
-
-        {logsWithAmount.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>💸</Text>
-            <Text style={styles.emptyTitle}>支出記録がまだありません</Text>
-            <Text style={styles.emptyDesc}>
-              ホームタブで金額を入力してログを記録すると{'\n'}ここに表示されます
-            </Text>
-          </View>
-        ) : (
-          logsWithAmount.map((log) => {
-            const catStyle = COLORS.cat[log.category] ?? COLORS.cat['その他'];
-            return (
-              <View key={log.id} style={styles.logRow}>
-                <View style={styles.logLeft}>
-                  <Text style={styles.logDate}>{formatDateShort(log.date)}</Text>
-                  <Text style={styles.logTitle}>{log.title}</Text>
-                  <View style={styles.logMeta}>
-                    <Text style={styles.logOshi}>💕 {getOshiName(log.oshiId)}</Text>
-                    <View
-                      style={[
-                        styles.logCatBadge,
-                        {
-                          backgroundColor: catStyle.bg,
-                          borderColor: catStyle.border,
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.logCatText, { color: catStyle.text }]}>
-                        {CAT_ICONS[log.category]}{log.category}
-                      </Text>
+            {/* ── 3. 最近の支出一覧 ── */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionEmoji}>📋</Text>
+              <Text style={styles.sectionTitle}>最近の支出</Text>
+            </View>
+            {recentExpenses.map((item) => {
+              const catStyle = COLORS.cat[item.category] ?? COLORS.cat['その他'];
+              return (
+                <View key={item.id} style={styles.logRow}>
+                  <View style={styles.logLeft}>
+                    <Text style={styles.logDate}>{formatDateShort(item.date)}</Text>
+                    <Text style={styles.logTitle}>{item.title}</Text>
+                    <View style={styles.logMeta}>
+                      <Text style={styles.logOshi}>💕 {getOshiName(item.oshiId)}</Text>
+                      <View
+                        style={[
+                          styles.logCatBadge,
+                          {
+                            backgroundColor: catStyle.bg || COLORS.primaryLight,
+                            borderColor: catStyle.border || COLORS.primary,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.logCatText, { color: catStyle.text || COLORS.primaryDark }]}>
+                          {CAT_ICONS[item.category]}{item.category}
+                        </Text>
+                      </View>
+                      <View style={styles.typeBadge}>
+                        <Text style={styles.typeText}>{item.type === 'log' ? 'ログ' : 'グッズ'}</Text>
+                      </View>
                     </View>
                   </View>
+                  <Text style={styles.logAmount}>-{formatAmount(item.amount)}</Text>
                 </View>
-                <Text style={styles.logAmount}>-{formatAmount(log.amount!)}</Text>
-              </View>
-            );
-          })
+              );
+            })}
+          </>
         )}
       </View>
     </ScrollView>
@@ -158,7 +246,7 @@ export default function BudgetTab({ logs, oshis }: Props) {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { paddingBottom: 32 },
+  content: { paddingBottom: 40 },
 
   // ページヘッダー
   pageHeader: {
@@ -166,7 +254,7 @@ const styles = StyleSheet.create({
     paddingTop: 24, paddingBottom: 20,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
-    overflow: 'hidden', marginBottom: 8,
+    overflow: 'hidden', marginBottom: 16,
     ...SHADOW.card,
   },
   pageHeaderDeco: {
@@ -180,60 +268,84 @@ const styles = StyleSheet.create({
   },
   pageSub: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 18 },
 
-  body: { paddingHorizontal: 16, paddingTop: 4 },
+  body: { paddingHorizontal: 16 },
 
-  // 合計支出カード（LP 収支管理画面風）
-  totalCard: {
+  // ── サマリーカード ──
+  summaryGrid: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  summaryCard: {
     backgroundColor: COLORS.cardBg,
     borderRadius: RADIUS.card,
-    padding: 20, marginBottom: 20,
+    padding: 16,
+    ...SHADOW.card,
+    justifyContent: 'center',
+  },
+  summaryCardMain: {
+    paddingVertical: 24,
     alignItems: 'center',
-    ...SHADOW.cardStrong,
-    borderTopWidth: 4, borderTopColor: COLORS.primary,
+    borderTopWidth: 4,
+    borderTopColor: COLORS.primary,
   },
-  totalLabel: {
-    fontSize: 13, color: COLORS.textSecondary,
-    fontWeight: '600', marginBottom: 6,
+  summaryRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  totalAmount: {
-    fontSize: 36, fontWeight: '800',
-    color: COLORS.primaryDark, letterSpacing: -1, marginBottom: 16,
+  summaryCardHalf: {
+    flex: 1,
   },
-  totalRow: {
-    flexDirection: 'row', width: '100%',
-    backgroundColor: COLORS.background, borderRadius: RADIUS.cardSm,
-    paddingVertical: 10, paddingHorizontal: 16,
+  summaryLabelMain: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    marginBottom: 8,
   },
-  totalSub: { flex: 1, alignItems: 'center' },
-  totalSubLabel: { fontSize: 11, color: COLORS.textTertiary, marginBottom: 2 },
-  totalSubVal: { fontSize: 16, fontWeight: '700', color: COLORS.accentDark },
-  totalSubDivider: {
-    width: 1, backgroundColor: COLORS.border, marginHorizontal: 12,
+  summaryAmountMain: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: COLORS.primaryDark,
+    letterSpacing: -1,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  summaryAmount: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.accentDark,
+  },
+  summaryAmountSmall: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.text,
   },
 
-  // セクションヘッダー
+  // ── セクションヘッダー ──
   sectionHeaderRow: {
     flexDirection: 'row', alignItems: 'center',
-    gap: 6, marginBottom: 10, marginTop: 4,
+    gap: 6, marginBottom: 12, marginTop: 8,
   },
   sectionEmoji: { fontSize: 16 },
   sectionTitle: {
-    fontSize: 16, fontWeight: '700',
+    fontSize: 15, fontWeight: '800',
     color: COLORS.accentDark, flex: 1,
   },
-  sectionHint: { fontSize: 12, color: COLORS.textTertiary },
 
-  // カテゴリ別内訳カード
+  // ── カテゴリ別内訳カード ──
   breakdownCard: {
     backgroundColor: COLORS.cardBg,
     borderRadius: RADIUS.card,
-    paddingHorizontal: 16, marginBottom: 20,
+    paddingHorizontal: 16, marginBottom: 24,
     ...SHADOW.card,
   },
   breakdownRow: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   breakdownRowBorder: {
     borderBottomWidth: 1, borderBottomColor: COLORS.divider,
@@ -256,43 +368,55 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   breakdownAmount: {
-    fontSize: 15, fontWeight: '700', color: '#D94949',
-    minWidth: 80, textAlign: 'right',
+    fontSize: 15, fontWeight: '700', color: COLORS.text,
+    minWidth: 70, textAlign: 'right',
   },
 
-  // 支出ログ行（LP の収支管理リストスタイル）
+  // ── 支出リスト ──
   logRow: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.cardBg,
     borderRadius: RADIUS.cardSm,
-    paddingVertical: 12, paddingHorizontal: 14,
-    marginBottom: 8, ...SHADOW.card,
+    paddingVertical: 14, paddingHorizontal: 16,
+    marginBottom: 10, ...SHADOW.card,
   },
   logLeft: { flex: 1, marginRight: 12 },
   logDate: {
     fontSize: 11, color: COLORS.textTertiary,
-    fontWeight: '600', marginBottom: 3,
+    fontWeight: '600', marginBottom: 4,
   },
   logTitle: {
-    fontSize: 14, fontWeight: '700',
-    color: COLORS.text, marginBottom: 4,
+    fontSize: 15, fontWeight: '700',
+    color: COLORS.text, marginBottom: 6,
   },
   logMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logOshi: { fontSize: 11, color: COLORS.primary, fontWeight: '600' },
   logCatBadge: {
-    paddingHorizontal: 7, paddingVertical: 2,
+    paddingHorizontal: 6, paddingVertical: 2,
     borderRadius: RADIUS.chip, borderWidth: 1,
   },
   logCatText: { fontSize: 10, fontWeight: '600' },
+  typeBadge: {
+    backgroundColor: COLORS.inputBg,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: RADIUS.chip,
+  },
+  typeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
   logAmount: {
-    fontSize: 15, fontWeight: '700', color: '#D94949',
+    fontSize: 16, fontWeight: '800', color: '#D94949',
   },
 
-  // 空状態
+  // ── 空状態 ──
   empty: {
     backgroundColor: COLORS.cardBg, borderRadius: RADIUS.card,
     paddingVertical: 40, alignItems: 'center', ...SHADOW.card,
+    borderWidth: 1.5, borderColor: COLORS.border, borderStyle: 'dashed',
   },
   emptyEmoji: { fontSize: 44, marginBottom: 12 },
   emptyTitle: {
