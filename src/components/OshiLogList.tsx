@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { OshiLog, Oshi } from '../types/oshi';
 import { formatAmount, formatDate } from '../utils/format';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
@@ -7,7 +8,6 @@ import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 type Props = {
   logs: OshiLog[];
   oshis: Oshi[];
-  onDelete: (id: string) => void;
 };
 
 // LP 収支管理画面参考のカテゴリスタイル
@@ -35,7 +35,12 @@ const CATEGORY_ICONS: Record<string, string> = {
   その他: '📌',
 };
 
-export default function OshiLogList({ logs, oshis, onDelete }: Props) {
+import { useOshiContext } from '../contexts/OshiContext';
+
+export default function OshiLogList({ logs, oshis }: Props) {
+  const { deleteLog } = useOshiContext();
+  const navigation = useNavigation<any>();
+
   if (logs.length === 0) {
     return (
       <View style={styles.empty}>
@@ -60,7 +65,7 @@ export default function OshiLogList({ logs, oshis, onDelete }: Props) {
         {
           text: '削除する',
           style: 'destructive',
-          onPress: () => onDelete(log.id),
+          onPress: () => deleteLog(log.id),
         },
       ]
     );
@@ -74,7 +79,12 @@ export default function OshiLogList({ logs, oshis, onDelete }: Props) {
         const catIcon = CATEGORY_ICONS[log.category] ?? '📌';
 
         return (
-          <View key={log.id} style={[styles.card, { borderLeftColor: borderColor }]}>
+          <TouchableOpacity 
+            key={log.id} 
+            style={[styles.card, { borderLeftColor: borderColor }]}
+            onPress={() => navigation.navigate('LogDetail', { logId: log.id })}
+            activeOpacity={0.8}
+          >
             {/* ── ヘッダー行：日付・カテゴリ・削除 ── */}
             <View style={styles.row}>
               <Text style={styles.date}>{formatDate(log.date)}</Text>
@@ -126,7 +136,7 @@ export default function OshiLogList({ logs, oshis, onDelete }: Props) {
                 </Text>
               </View>
             )}
-          </View>
+          </TouchableOpacity>
         );
       })}
     </View>

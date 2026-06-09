@@ -9,18 +9,7 @@ import SectionHeader from '../components/SectionHeader';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 import { formatAmount } from '../utils/format';
 
-type Props = {
-  oshis: Oshi[];
-  logs: OshiLog[];
-  goods?: OshiGoods[];
-  selectedOshi: Oshi | null;
-  selectedOshiId: string | null;
-  onAddOshi: (oshi: Oshi) => void;
-  onDeleteOshi: (id: string) => void;
-  onSelectOshi: (id: string) => void;
-  onAddLog: (log: OshiLog) => void;
-  onDeleteLog: (id: string) => void;
-};
+import { useOshiContext } from '../contexts/OshiContext';
 
 // ランダムグリーティング（マウント時に1度だけ決定）
 const GREETINGS = [
@@ -32,18 +21,19 @@ const GREETINGS = [
 ];
 const GREETING_MSG = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 
-export default function HomeTab({
-  oshis,
-  logs,
-  goods = [],
-  selectedOshi,
-  selectedOshiId,
-  onAddOshi,
-  onDeleteOshi,
-  onSelectOshi,
-  onAddLog,
-  onDeleteLog,
-}: Props) {
+export default function HomeTab() {
+  const {
+    oshis,
+    logs,
+    goods = [],
+    selectedOshi,
+    selectedOshiId,
+    addOshi,
+    deleteOshi,
+    selectOshi,
+    addLog,
+    deleteLog,
+  } = useOshiContext();
   const goodsList = goods ?? [];
 
   // フィルタ適用（選択中の推しがいれば絞り込む）
@@ -123,7 +113,7 @@ export default function HomeTab({
       {/* ── ボディ ── */}
       <View style={styles.body}>
         <SectionHeader emoji="✨" title="推しを登録する" />
-        <OshiForm onAdd={onAddOshi} />
+        <OshiForm onAdd={addOshi} />
 
         <SectionHeader
           emoji="🌸"
@@ -133,12 +123,12 @@ export default function HomeTab({
         <OshiList
           oshis={oshis}
           selectedOshiId={selectedOshiId}
-          onSelect={onSelectOshi}
-          onDelete={onDeleteOshi}
+          onSelect={selectOshi}
+          onDelete={deleteOshi}
         />
 
         <SectionHeader emoji="📝" title="推し活を記録する" />
-        <OshiLogForm selectedOshi={selectedOshi} onAdd={onAddLog} />
+        <OshiLogForm selectedOshi={selectedOshi} onAdd={addLog} />
 
         <SectionHeader
           emoji="📖"
@@ -146,7 +136,7 @@ export default function HomeTab({
           hint={filteredLogs.length > 0 ? `${filteredLogs.length}件` : undefined}
         />
 
-        <OshiLogList logs={filteredLogs} oshis={oshis} onDelete={onDeleteLog} />
+        <OshiLogList logs={filteredLogs} oshis={oshis} onDelete={deleteLog} />
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>推しログ — 推し活をもっと楽しく 💫</Text>

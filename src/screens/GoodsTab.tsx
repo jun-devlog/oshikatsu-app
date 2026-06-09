@@ -13,17 +13,9 @@ import { generateId, formatAmount } from '../utils/format';
 import { getTodayString, formatDisplayDate, isValidDateString } from '../utils/date';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 import DatePickerModal from '../components/DatePickerModal';
+import { useNavigation } from '@react-navigation/native';
 import OshiSelectorTabs from '../components/OshiFilterToggle';
-
-type Props = {
-  goods: OshiGoods[];
-  oshis: Oshi[];
-  selectedOshi: Oshi | null;
-  selectedOshiId: string | null;
-  onSelectOshi: (id: string | null) => void;
-  onAddGoods: (item: OshiGoods) => void;
-  onDeleteGoods: (id: string) => void;
-};
+import { useOshiContext } from '../contexts/OshiContext';
 
 // アイコンマッピング
 const CAT_ICONS: Record<string, string> = {
@@ -44,15 +36,9 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   売却予定: { bg: '#FFF8E1', text: '#F57F17' },
 };
 
-export default function GoodsTab({
-  goods,
-  oshis,
-  selectedOshi,
-  selectedOshiId,
-  onSelectOshi,
-  onAddGoods,
-  onDeleteGoods,
-}: Props) {
+export default function GoodsTab() {
+  const navigation = useNavigation<any>();
+  const { goods, oshis, selectedOshi, selectedOshiId, selectOshi, addGoods, deleteGoods } = useOshiContext();
   const [name, setName] = useState('');
   const [category, setCategory] = useState<string>(GOODS_CATEGORIES[0]);
   const [status, setStatus] = useState<string>(GOODS_STATUSES[0]);
@@ -96,7 +82,7 @@ export default function GoodsTab({
       createdAt: new Date().toISOString(),
     };
 
-    onAddGoods(newItem);
+    addGoods(newItem);
 
     // リセット
     setName('');
@@ -113,7 +99,7 @@ export default function GoodsTab({
       {
         text: '削除',
         style: 'destructive',
-        onPress: () => onDeleteGoods(id),
+        onPress: () => deleteGoods(id),
       },
     ]);
   };
@@ -291,7 +277,7 @@ export default function GoodsTab({
             <OshiSelectorTabs
               oshis={oshis}
               selectedOshiId={selectedOshiId}
-              onSelect={onSelectOshi}
+              onSelect={selectOshi}
             />
           </View>
           {sortedGoods.length === 0 ? (
@@ -304,7 +290,12 @@ export default function GoodsTab({
             sortedGoods.map((item) => {
               const statColor = STATUS_COLORS[item.status] || { bg: '#eee', text: '#333' };
               return (
-                <View key={item.id} style={styles.itemCard}>
+                <TouchableOpacity 
+                  key={item.id} 
+                  style={styles.itemCard}
+                  onPress={() => navigation.navigate('GoodsDetail', { goodsId: item.id })}
+                  activeOpacity={0.8}
+                >
                   <View style={styles.itemHeader}>
                     <View style={styles.itemCatWrap}>
                       <Text style={styles.itemCatIcon}>{CAT_ICONS[item.category] ?? '📌'}</Text>
@@ -341,7 +332,7 @@ export default function GoodsTab({
                   >
                     <Text style={styles.deleteText}>削除</Text>
                   </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               );
             })
           )}

@@ -15,6 +15,7 @@ import { generateId } from '../utils/format';
 import { getTodayString, formatDisplayDate, isValidDateString } from '../utils/date';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 import DatePickerModal from './DatePickerModal';
+import { auth } from '../config/firebase';
 
 type Props = {
   selectedOshi: Oshi | null;
@@ -43,6 +44,7 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
   const [memo, setMemo] = useState('');
   const [amountStr, setAmountStr] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const pickImage = async () => {
     try {
@@ -74,7 +76,7 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
     );
   }
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     // 日付チェック
     if (!isValidDateString(dateStr)) {
       Alert.alert('入力エラー', '正しい日付を選択してください');
@@ -93,27 +95,41 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
       return;
     }
 
-    const log: OshiLog = {
-      id: generateId(),
-      oshiId: selectedOshi.id,
-      date: dateStr, // YYYY-MM-DD で保存
-      category,
-      title: title.trim(),
-      memo: memo.trim(),
-      amount,
-      imageUri: imageUri || undefined,
-      createdAt: new Date().toISOString(),
-    };
-    onAdd(log);
+    if (isUploading) return;
+    setIsUploading(true);
 
-    // フォームリセット
-    setDateStr(getTodayString());
-    setCategory(CATEGORIES[0]);
-    setTitle('');
-    setMemo('');
-    setAmountStr('');
-    setImageUri(null);
+    try {
+      const finalImageUri = imageUri; // クラウド保存せずローカルURIをそのまま使う
+
+      const log: OshiLog = {
+        id: generateId(),
+        oshiId: selectedOshi.id,
+        date: dateStr, // YYYY-MM-DD で保存
+        category,
+        title: title.trim(),
+        memo: memo.trim(),
+        amount,
+        imageUri: finalImageUri || undefined,
+        createdAt: new Date().toISOString(),
+      };
+      
+      await onAdd(log);
+
+      // フォームリセット
+      setDateStr(getTodayString());
+      setCategory(CATEGORIES[0]);
+      setTitle('');
+      setMemo('');
+      setAmountStr('');
+      setImageUri(null);
+    } catch (e) {
+      Alert.alert('エラー', '保存に失敗しました');
+      console.error(e);
+    } finally {
+      setIsUploading(false);
+    }
   };
+
 
   return (
     <>
@@ -256,8 +272,8 @@ export default function OshiLogForm({ selectedOshi, onAdd }: Props) {
         </View>
 
         {/* 保存ボタン */}
-        <TouchableOpacity style={styles.button} onPress={handleAdd} activeOpacity={0.82}>
-          <Text style={styles.buttonText}>🌸 記録する</Text>
+        <TouchableOpacity style={[styles.button, isUploading && styles.buttonDisabled]} onPress={handleAdd} activeOpacity={0.82} disabled={isUploading}>
+          <Text style={styles.buttonText}>{isUploading ? 'アップロード中...' : '🌸 記録する'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -541,5 +557,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });

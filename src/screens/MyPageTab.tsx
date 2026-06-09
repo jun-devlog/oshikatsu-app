@@ -5,13 +5,10 @@ import { formatAmount } from '../utils/format';
 import { getTodayString } from '../utils/date';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 
-type Props = {
-  oshis: Oshi[];
-  logs: OshiLog[];
-  goods?: OshiGoods[];
-};
+import { useOshiContext } from '../contexts/OshiContext';
 
-export default function MyPageTab({ oshis, logs, goods = [] }: Props) {
+export default function MyPageTab() {
+  const { oshis, logs, goods = [] } = useOshiContext();
   const oshiCount = oshis.length;
   const logCount = logs.length;
   const goodsCount = goods.length;

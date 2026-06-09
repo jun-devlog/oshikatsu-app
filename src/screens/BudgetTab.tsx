@@ -6,15 +6,7 @@ import { getTodayString } from '../utils/date';
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 
 import OshiSelectorTabs from '../components/OshiFilterToggle';
-
-type Props = {
-  logs: OshiLog[];
-  oshis: Oshi[];
-  goods?: OshiGoods[];
-  selectedOshi: Oshi | null;
-  selectedOshiId: string | null;
-  onSelectOshi: (id: string | null) => void;
-};
+import { useOshiContext } from '../contexts/OshiContext';
 
 const CAT_ICONS: Record<string, string> = {
   // ログカテゴリ
@@ -38,14 +30,8 @@ type ExpenseItem = {
   createdAt: string;
 };
 
-export default function BudgetTab({
-  logs,
-  oshis,
-  goods = [],
-  selectedOshi,
-  selectedOshiId,
-  onSelectOshi,
-}: Props) {
+export default function BudgetTab() {
+  const { logs, oshis, goods = [], selectedOshi, selectedOshiId, selectOshi } = useOshiContext();
   // 1. 支出データを統合
   const expenses = useMemo(() => {
     const items: ExpenseItem[] = [];
@@ -149,7 +135,7 @@ export default function BudgetTab({
           <OshiSelectorTabs
             oshis={oshis}
             selectedOshiId={selectedOshiId}
-            onSelect={onSelectOshi}
+            onSelect={selectOshi}
           />
         </View>
 

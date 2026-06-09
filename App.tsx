@@ -1,177 +1,104 @@
-import React, { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-  ActivityIndicator,
-} from 'react-native';
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { OshiProvider, useOshiContext } from './src/contexts/OshiContext';
+import { ActivityIndicator, View, Text, StyleSheet, SafeAreaView, Platform, KeyboardAvoidingView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useOshiStorage } from './src/hooks/useOshiStorage';
-import BottomNav, { TabKey } from './src/components/BottomNav';
-import OshiSelectorTabs from './src/components/OshiFilterToggle';
 import HomeTab from './src/screens/HomeTab';
 import CalendarTab from './src/screens/CalendarTab';
 import GoodsTab from './src/screens/GoodsTab';
 import BudgetTab from './src/screens/BudgetTab';
 import MyPageTab from './src/screens/MyPageTab';
+import LogDetailScreen from './src/screens/LogDetailScreen';
+import GoodsDetailScreen from './src/screens/GoodsDetailScreen';
 import { COLORS } from './src/styles/theme';
 
-export default function App() {
-  // ── タブ切り替え状態 ──
-  const [activeTab, setActiveTab] = useState<TabKey>('home');
+const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
 
-  // ── フィルタモード（削除：selectedOshiIdに統一） ──
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarStyle: {
+          borderTopWidth: 1,
+          borderTopColor: COLORS.border,
+          elevation: 8,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+      }}
+    >
+      <Tab.Screen name="Home" component={HomeTab} options={{ tabBarLabel: 'ホーム', tabBarIcon: () => <Text style={{fontSize: 20}}>🏠</Text> }} />
+      <Tab.Screen name="Calendar" component={CalendarTab} options={{ tabBarLabel: 'カレンダー', tabBarIcon: () => <Text style={{fontSize: 20}}>📅</Text> }} />
+      <Tab.Screen name="Goods" component={GoodsTab} options={{ tabBarLabel: 'グッズ', tabBarIcon: () => <Text style={{fontSize: 20}}>🛍️</Text> }} />
+      <Tab.Screen name="Budget" component={BudgetTab} options={{ tabBarLabel: '収支', tabBarIcon: () => <Text style={{fontSize: 20}}>💰</Text> }} />
+      <Tab.Screen name="MyPage" component={MyPageTab} options={{ tabBarLabel: 'マイページ', tabBarIcon: () => <Text style={{fontSize: 20}}>👤</Text> }} />
+    </Tab.Navigator>
+  );
+}
 
-  // ── データ管理（useOshiStorage に全て集約） ──
-  const {
-    oshis,
-    logs,
-    goods,
-    selectedOshi,
-    selectedOshiId,
-    loading,
-    addOshi,
-    deleteOshi,
-    selectOshi,
-    addLog,
-    deleteLog,
-    addGoods,
-    deleteGoods,
-  } = useOshiStorage();
+function RootNavigator() {
+  const { loading } = useOshiContext();
 
-  // 推し選択トグル（同じ推しをタップしたら選択解除）
-  const handleSelectOshi = (id: string | null) => {
-    if (id === null) {
-      selectOshi(null);
-    } else {
-      selectOshi(id === selectedOshiId ? null : id);
-    }
-  };
-
-  // ── ローディング画面 ──
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingScreen}>
         <View style={styles.loadingInner}>
           <Text style={styles.loadingAppName}>推しログ</Text>
           <Text style={styles.loadingHeart}>💕</Text>
-          <ActivityIndicator
-            size="large"
-            color={COLORS.primary}
-            style={{ marginTop: 24 }}
-          />
+          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 24 }} />
           <Text style={styles.loadingText}>読み込み中...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // ── アクティブなタブのコンテンツを返す ──
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'home':
-        return (
-          <HomeTab
-            oshis={oshis}
-            logs={logs}
-            goods={goods}
-            selectedOshi={selectedOshi}
-            selectedOshiId={selectedOshiId}
-            onAddOshi={addOshi}
-            onDeleteOshi={deleteOshi}
-            onSelectOshi={handleSelectOshi}
-            onAddLog={addLog}
-            onDeleteLog={deleteLog}
-          />
-        );
-      case 'calendar':
-        return (
-          <CalendarTab
-            logs={logs}
-            oshis={oshis}
-            selectedOshiId={selectedOshiId}
-            onSelectOshi={handleSelectOshi}
-          />
-        );
-      case 'goods':
-        return (
-          <GoodsTab
-            goods={goods}
-            oshis={oshis}
-            selectedOshi={selectedOshi}
-            selectedOshiId={selectedOshiId}
-            onSelectOshi={handleSelectOshi}
-            onAddGoods={addGoods}
-            onDeleteGoods={deleteGoods}
-          />
-        );
-      case 'budget':
-        return (
-          <BudgetTab
-            logs={logs}
-            oshis={oshis}
-            goods={goods}
-            selectedOshi={selectedOshi}
-            selectedOshiId={selectedOshiId}
-            onSelectOshi={handleSelectOshi}
-          />
-        );
-      case 'mypage':
-        return <MyPageTab oshis={oshis} logs={logs} goods={goods} />;
-    }
-  };
-
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <NavigationContainer>
+        <Stack.Navigator 
+          screenOptions={{ 
+            headerStyle: { backgroundColor: COLORS.headerBg }, 
+            headerTintColor: COLORS.accentDark,
+            headerBackTitle: '戻る',
+            headerTitleStyle: { fontWeight: '700' }
+          }}
+        >
+          <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
+          <Stack.Screen name="LogDetail" component={LogDetailScreen} options={{ title: '推し活詳細' }} />
+          <Stack.Screen name="GoodsDetail" component={GoodsDetailScreen} options={{ title: 'グッズ詳細' }} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </KeyboardAvoidingView>
+  );
+}
+
+export default function App() {
+  return (
+    <OshiProvider>
       <StatusBar style="dark" backgroundColor={COLORS.headerBg} />
-
-      {/*
-        KeyboardAvoidingView でタブコンテンツを包む。
-        BottomNav は KAV の外（下部固定）に配置する。
-      */}
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
-      >
-        {renderTabContent()}
-      </KeyboardAvoidingView>
-
-      {/* 下部タブナビゲーション（activeTab でハイライト、onTabChange で切り替え） */}
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-    </SafeAreaView>
+      <RootNavigator />
+    </OshiProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-
-  // ローディング
-  loadingScreen: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  loadingScreen: { flex: 1, backgroundColor: COLORS.primaryBg, justifyContent: 'center', alignItems: 'center' },
   loadingInner: { alignItems: 'center' },
-  loadingAppName: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: COLORS.primary,
-    letterSpacing: 1,
-  },
-  loadingHeart: { fontSize: 36, marginTop: 4 },
-  loadingText: {
-    fontSize: 13,
-    color: COLORS.textTertiary,
-    marginTop: 12,
-  },
+  loadingAppName: { fontSize: 32, fontWeight: '800', color: COLORS.primaryDark },
+  loadingHeart: { fontSize: 40, marginTop: 10 },
+  loadingText: { marginTop: 16, fontSize: 14, color: COLORS.primary, fontWeight: '600' },
 });

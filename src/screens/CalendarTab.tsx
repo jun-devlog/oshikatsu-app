@@ -6,13 +6,7 @@ import { getTodayString, parseDateString, toDateString, generateCalendarWeeks } 
 import { COLORS, RADIUS, SHADOW } from '../styles/theme';
 
 import OshiSelectorTabs from '../components/OshiFilterToggle';
-
-type Props = {
-  logs: OshiLog[];
-  oshis: Oshi[];
-  selectedOshiId: string | null;
-  onSelectOshi: (id: string | null) => void;
-};
+import { useOshiContext } from '../contexts/OshiContext';
 
 const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -28,12 +22,8 @@ const EVENT_COLORS: Record<string, string> = {
   その他: '#AFA0C8', // 薄紫
 };
 
-export default function CalendarTab({
-  logs,
-  oshis,
-  selectedOshiId,
-  onSelectOshi,
-}: Props) {
+export default function CalendarTab() {
+  const { logs, oshis, selectedOshiId, selectOshi } = useOshiContext();
   const todayStr = getTodayString();
   const todayDate = parseDateString(todayStr)!;
 
@@ -123,7 +113,7 @@ export default function CalendarTab({
           <OshiSelectorTabs
             oshis={oshis}
             selectedOshiId={selectedOshiId}
-            onSelect={onSelectOshi}
+            onSelect={selectOshi}
           />
         </View>
 
